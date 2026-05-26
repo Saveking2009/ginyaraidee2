@@ -2,6 +2,7 @@
   "name": "ginyaraidee",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "GINYARAIDEE - AI Health Companion App",
   "scripts": {
     "dev": "vite",
