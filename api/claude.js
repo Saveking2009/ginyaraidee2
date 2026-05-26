@@ -1,5 +1,4 @@
-// api/claude.js — Vercel Serverless Function (CommonJS)
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -9,7 +8,7 @@ module.exports = async function handler(req, res) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set in Vercel Environment Variables' });
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
   }
 
   try {
@@ -27,8 +26,8 @@ module.exports = async function handler(req, res) {
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
-};
+}
 
-module.exports.config = {
+export const config = {
   api: { bodyParser: { sizeLimit: '10mb' } },
 };
