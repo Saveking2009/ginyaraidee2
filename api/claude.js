@@ -11,6 +11,10 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
   }
 
+  // Force the correct model name (frontend ส่ง 'claude-sonnet-4-20250514' มา แต่ API จริงต้องใช้ตัวนี้)
+  const body = req.body || {};
+  body.model = 'claude-sonnet-4-5-20250929';
+
   try {
     const upstream = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -19,7 +23,7 @@ export default async function handler(req, res) {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify(body),
     });
     const data = await upstream.json();
     return res.status(upstream.status).json(data);
