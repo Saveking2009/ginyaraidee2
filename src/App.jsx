@@ -4,7 +4,8 @@ import {
   Camera, Send, Plus, X, Heart, Activity, Shield, ChevronRight,
   Sparkles, AlertCircle, Loader2, Eye, EyeOff, Trash2, ArrowLeft,
   Flame, Apple, Wheat, Droplet, ChevronLeft, Check, Image as ImageIcon,
-  Leaf, AlertTriangle, Phone, RotateCcw
+  Leaf, AlertTriangle, Phone, RotateCcw, Pencil, BarChart3, TrendingUp,
+  TrendingDown, Calendar, ScanLine
 } from 'lucide-react';
 
 /* ============================================================
@@ -718,6 +719,11 @@ function Dashboard({ profile, foodLog, goto }) {
         </div>
       )}
 
+      {/* Weekly summary card */}
+      {foodLog.length > 0 && (
+        <WeeklySummaryCard foodLog={foodLog} tdee={tdee} profile={profile} />
+      )}
+
       {/* disclaimer */}
       <div className="mt-6 rounded-2xl p-3 flex items-start gap-2 anim-fadeIn"
         style={{ backgroundColor: PALETTE.shell }}
@@ -746,6 +752,178 @@ function StatTile({ label, value, sub, tone, icon, delay }) {
   );
 }
 
+function WeeklySummaryCard({ foodLog, tdee, profile }) {
+  const [expanded, setExpanded] = useState(false);
+  const [aiInsight, setAiInsight] = useState(null);
+  const [loadingInsight, setLoadingInsight] = useState(false);
+
+  // Build last 7 days
+  const days = [];
+  const now = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const dayLog = foodLog.filter(f => f.day === key);
+    const cal = dayLog.reduce((s, f) => s + (f.calories || 0), 0);
+    days.push({
+      key, cal,
+      label: ['อา','จ','อ','พ','พฤ','ศ','ส'][d.getDay()],
+      date: d.getDate(),
+      isToday: i === 0,
+      meals: dayLog.length,
+    });
+  }
+
+  const totalCal = days.reduce((s, d) => s + d.cal, 0);
+  const avgCal = Math.round(totalCal / 7);
+  const activeDays = days.filter(d => d.meals > 0).length;
+  const maxCal = Math.max(...days.map(d => d.cal), tdee || 2000);
+
+  const target = tdee || 2000;
+  const diff = avgCal - target;
+  const trend = diff > target * 0.05 ? 'over' : diff < -target * 0.05 ? 'under' : 'balanced';
+  const trendInfo = {
+    over: { icon: <TrendingUp size={14} />, label: 'กินเกินเป้า', tone: PALETTE.coral, text: `เฉลี่ยเกินวันละ ${diff} kcal` },
+    under: { icon: <TrendingDown size={14} />, label: 'กินน้อยกว่าเป้า', tone: '#6BA4D9', text: `เฉลี่ยขาดวันละ ${Math.abs(diff)} kcal` },
+    balanced: { icon: <Check size={14} />, label: 'สมดุลดี', tone: PALETTE.sage, text: 'พลังงานพอดีกับเป้าหมาย' },
+  }[trend];
+
+  const askAI = async () => {
+    if (aiInsight || loadingInsight) { setExpanded(!expanded); return; }
+    setLoadingInsight(true);
+    setExpanded(true);
+    try {
+      const summary = days.map(d => `${d.label} (${d.date}): ${d.cal} kcal, ${d.meals} มื้อ`).join('\n');
+      const topFoods = foodLog.slice(-15).map(f => f.name).join(', ');
+      const persona = resolvePersonality(load('gyn_persona', 'auto'), profile.age);
+
+      const response = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 600,
+          system: persona.prompt + '\n\nให้สรุปสุขภาพรายสัปดาห์ ตอบเป็นข้อความธรรมดา ห้าม markdown ห้าม **',
+          messages: [{
+            role: 'user',
+            content: `สรุปการกินรายสัปดาห์ของผู้ใช้ (เป้าหมายวันละ ${target} kcal):
+${summary}
+
+อาหารที่กินล่าสุด: ${topFoods}
+
+ช่วยวิเคราะห์ 3 ส่วนสั้นๆ:
+1. ภาพรวม (1 ประโยค)
+2. ข้อดี/สิ่งที่ทำได้ดี (1-2 ประโยค)
+3. คำแนะนำสำหรับสัปดาห์หน้า (1-2 ประโยค)
+
+ตอบเป็นย่อหน้าธรรมดา ไม่ต้องใส่หัวข้อหรือเลข`
+          }]
+        })
+      });
+      const data = await response.json();
+      const reply = data.content.map(b => b.text || '').join('').trim();
+      setAiInsight(reply);
+    } catch (e) {
+      setAiInsight('ขอโทษค่ะ ดึงข้อมูลไม่สำเร็จ');
+    } finally {
+      setLoadingInsight(false);
+    }
+  };
+
+  return (
+    <div className="anim-slideUp mb-4">
+      <div className="font-display font-semibold text-sm mb-3 flex items-center gap-2" style={{ color: PALETTE.sageDeep }}>
+        <BarChart3 size={16} color={PALETTE.gold} /> สรุปรายสัปดาห์
+      </div>
+
+      <div className="rounded-3xl p-5 deep-shadow relative overflow-hidden"
+        style={{ backgroundColor: PALETTE.paper }}
+      >
+        {/* Top: avg + trend */}
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <div className="font-accent text-tiny mb-1" style={{ color: PALETTE.muted }}>เฉลี่ยต่อวัน</div>
+            <div className="font-display text-3xl font-bold leading-none" style={{ color: PALETTE.sageDeep }}>
+              {avgCal} <span className="text-sm font-normal" style={{ color: PALETTE.muted }}>kcal</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg"
+              style={{ backgroundColor: trendInfo.tone + '22', color: trendInfo.tone }}
+            >
+              {trendInfo.icon}
+              <span className="font-display text-tiny font-semibold">{trendInfo.label}</span>
+            </div>
+            <div className="font-body text-tiny mt-1" style={{ color: PALETTE.muted }}>{trendInfo.text}</div>
+          </div>
+        </div>
+
+        {/* Bar chart */}
+        <div className="flex items-end justify-between gap-1.5 h-24 mb-3">
+          {days.map((d) => {
+            const h = d.cal === 0 ? 4 : Math.max(8, (d.cal / maxCal) * 100);
+            const overTarget = d.cal > target;
+            return (
+              <div key={d.key} className="flex-1 flex flex-col items-center gap-1">
+                <div className="w-full rounded-md relative" style={{ height: `${h}%`, minHeight: '4px',
+                  backgroundColor: d.isToday ? PALETTE.sageDeep : overTarget ? PALETTE.coral : PALETTE.sage,
+                  transition: 'height 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
+                }}>
+                  {d.isToday && (
+                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: PALETTE.gold }} />
+                  )}
+                </div>
+                <div className="font-accent text-tiny" style={{
+                  color: d.isToday ? PALETTE.sageDeep : PALETTE.muted,
+                  fontWeight: d.isToday ? 600 : 400,
+                }}>
+                  {d.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Target line legend */}
+        <div className="flex items-center justify-between mb-3 text-tiny font-accent" style={{ color: PALETTE.muted }}>
+          <span>เป้าหมาย {target} kcal</span>
+          <span>บันทึก {activeDays}/7 วัน</span>
+        </div>
+
+        {/* AI insight button */}
+        <button onClick={askAI}
+          className="smooth-tap w-full py-3 rounded-2xl font-display font-medium text-sm flex items-center justify-center gap-2"
+          style={{ backgroundColor: PALETTE.shell, color: PALETTE.sageDeep }}
+        >
+          {loadingInsight ? (
+            <><Loader2 size={14} className="anim-spin-slow" /> AI กำลังวิเคราะห์...</>
+          ) : aiInsight ? (
+            <>{expanded ? 'ซ่อน' : 'ดู'}คำแนะนำจาก AI <ChevronRight size={14}
+              style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.25s' }} /></>
+          ) : (
+            <><Sparkles size={14} color={PALETTE.gold} /> ขอคำแนะนำจาก AI</>
+          )}
+        </button>
+
+        {expanded && aiInsight && (
+          <div className="mt-3 rounded-2xl p-4 anim-fadeIn"
+            style={{ backgroundColor: PALETTE.sageDeep }}
+          >
+            <div className="font-accent text-tiny mb-2 flex items-center gap-1.5" style={{ color: PALETTE.gold }}>
+              <Sparkles size={12} /> AI ว่ายังไง
+            </div>
+            <div className="font-body text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'white' }}>
+              {aiInsight}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ActionCard({ icon, title, subtitle, bg, accent, onClick, delay }) {
   return (
     <button onClick={onClick}
@@ -767,11 +945,14 @@ function ActionCard({ icon, title, subtitle, bg, accent, onClick, delay }) {
    Food Log Screen — photo + AI analysis
    ============================================================ */
 
-function FoodLog({ profile, foodLog, addFood, removeFood }) {
+function FoodLog({ profile, foodLog, addFood, removeFood, editFood }) {
   const [busy, setBusy] = useState(false);
   const [previewImg, setPreviewImg] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editCal, setEditCal] = useState('');
   const fileRef = useRef(null);
 
   const today = todayKey();
@@ -790,22 +971,35 @@ function FoodLog({ profile, foodLog, addFood, removeFood }) {
         ? `ผู้ใช้แพ้อาหารต่อไปนี้: ${profile.foodAllergy.join(', ')} ถ้าเจอในรูป ให้ใส่ในช่อง warnings ทันที`
         : '';
 
-      const prompt = `คุณคือนักโภชนาการ AI ที่วิเคราะห์รูปอาหารแบบ "โหดและแม่นยำที่สุด" — ตรงไปตรงมา ไม่เกรงใจ แต่ยังเป็นมิตร
+      const prompt = `คุณคือนักโภชนาการมืออาชีพระดับสูง วิเคราะห์รูปอาหารแบบ "แม่นยำที่สุดเท่าที่เป็นไปได้" — ตรงไปตรงมา ไม่เกรงใจ แต่ยังเป็นมิตร
 ${allergyContext}
 
-วิเคราะห์อาหารในรูปและ "ตอบเป็น JSON เท่านั้น" ห้ามมี markdown หรือข้อความอื่น ใช้โครงสร้าง:
+ขั้นตอนการวิเคราะห์ (ทำในใจก่อนตอบ):
+1. ระบุอาหารทุกอย่างที่เห็นในจาน (รวมเครื่องปรุง ผัก น้ำจิ้ม)
+2. ประมาณ "ปริมาณจริง" จากรูป — ดูขนาดจาน/ช้อน เป็นตัวอ้างอิง:
+   - จานข้าวมาตรฐาน Ø 22-25cm, ชามก๋วยเตี๋ยว 18-22cm, จานเล็ก 18cm
+   - ข้าวสวย 1 ทัพพี ≈ 80g ≈ 100 kcal
+   - เนื้อสัตว์ขนาดเท่าฝ่ามือ ≈ 100g
+3. คำนวณแคลของแต่ละส่วนแยกกัน แล้วบวกรวม (อย่ามั่ว ให้ลองคิดทีละชิ้น)
+4. ถ้าเห็นน้ำมัน/ทอด/ผัด ให้บวกแคลน้ำมันเพิ่ม (1 ช้อนโต๊ะ ≈ 120 kcal)
+5. ระบุอาหารไทยให้ถูกต้อง (ผัดกะเพรา ≠ ผัดพริกหวาน, ต้มยำน้ำใส ≠ น้ำข้น)
+6. ถ้ารูปไม่ชัด ภาพมืด หรือไม่ใช่อาหาร — ตั้งค่า "uncertain": true และอธิบายในช่อง verdict
+
+"ตอบเป็น JSON เท่านั้น" ห้ามมี markdown ห้าม backtick ห้ามข้อความอื่น โครงสร้าง:
 {
-  "foods": ["ชื่ออาหาร 1", "ชื่ออาหาร 2"],
-  "displayName": "ชื่อสรุปสั้นๆ ของจานนี้",
-  "totalCalories": ตัวเลขประมาณการที่ดีที่สุด,
-  "protein": กรัม,
-  "carbs": กรัม,
-  "fat": กรัม,
+  "foods": ["ชื่ออาหารแต่ละอย่าง พร้อมปริมาณโดยประมาณ เช่น 'ข้าวสวย 1 ทัพพี', 'ไก่ทอด 2 ชิ้น'"],
+  "displayName": "ชื่อสรุปจาน เช่น 'ข้าวมันไก่ + น้ำจิ้ม'",
+  "totalCalories": ตัวเลขรวมที่แม่นที่สุด (integer),
+  "protein": กรัม (integer),
+  "carbs": กรัม (integer),
+  "fat": กรัม (integer),
   "sodium": "ต่ำ/ปานกลาง/สูง/สูงมาก",
-  "healthScore": 1-10,
-  "verdict": "คำวิจารณ์โหดๆ สั้นๆ 1-2 ประโยค ตรงและฮา",
-  "tips": "คำแนะนำสั้นๆ ทำให้สุขภาพดีขึ้น",
-  "warnings": ["คำเตือนถ้ามี เช่น เกลือสูง น้ำตาลเยอะ หรือมีสิ่งที่ผู้ใช้แพ้"]
+  "healthScore": 1-10 (10=ดีมาก),
+  "confidence": "สูง/ปานกลาง/ต่ำ" (ความมั่นใจในการประมาณ),
+  "uncertain": true/false,
+  "verdict": "คำวิจารณ์ตรงๆ 1-2 ประโยค จริงใจไม่เกรงใจ",
+  "tips": "คำแนะนำสั้น ทำให้สุขภาพดีขึ้น",
+  "warnings": ["คำเตือนถ้ามี เช่น 'เกลือสูง', 'น้ำตาลเยอะ', 'มีกุ้ง (พี่แพ้)'"]
 }`;
 
       const response = await fetch('/api/claude', {
@@ -813,7 +1007,7 @@ ${allergyContext}
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
+          max_tokens: 1500,
           messages: [{
             role: 'user',
             content: [
@@ -927,11 +1121,28 @@ ${allergyContext}
               <div className="relative">
                 <img src={result.image} className="w-full h-48 object-cover" alt="" />
                 <div className="absolute inset-0"
-                  style={{ background: 'linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.6) 100%)' }}
+                  style={{ background: 'linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.7) 100%)' }}
                 />
+                {result.confidence && (
+                  <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full font-accent text-tiny"
+                    style={{
+                      backgroundColor: result.confidence === 'สูง' ? 'rgba(135,168,120,0.95)'
+                        : result.confidence === 'ปานกลาง' ? 'rgba(201,163,107,0.95)'
+                        : 'rgba(217,104,74,0.95)',
+                      color: 'white',
+                    }}
+                  >
+                    ความมั่นใจ: {result.confidence}
+                  </div>
+                )}
                 <div className="absolute bottom-3 left-4 right-4 text-white">
-                  <div className="font-display text-xl font-bold">{result.displayName}</div>
-                  <div className="font-body text-xs opacity-80">{result.foods?.join(' · ')}</div>
+                  <input
+                    value={result.displayName || ''}
+                    onChange={e => setResult({ ...result, displayName: e.target.value })}
+                    className="font-display text-xl font-bold bg-transparent w-full focus:outline-none border-b border-dashed border-white/40 pb-0.5"
+                    style={{ color: 'white' }}
+                  />
+                  <div className="font-body text-xs opacity-80 mt-1">{result.foods?.join(' · ')}</div>
                 </div>
               </div>
             )}
@@ -939,10 +1150,21 @@ ${allergyContext}
             <div className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <div className="font-display text-4xl font-bold" style={{ color: PALETTE.sageDeep }}>
-                    {result.totalCalories}
+                  <div className="flex items-baseline gap-1">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={result.totalCalories || ''}
+                      onChange={e => {
+                        const v = e.target.value.replace(/\D/g, '');
+                        setResult({ ...result, totalCalories: v ? parseInt(v) : 0 });
+                      }}
+                      className="font-display text-4xl font-bold bg-transparent border-b border-dashed w-24 focus:outline-none"
+                      style={{ color: PALETTE.sageDeep, borderColor: PALETTE.mist }}
+                    />
+                    <Pencil size={12} color={PALETTE.muted} />
                   </div>
-                  <div className="font-body text-xs" style={{ color: PALETTE.muted }}>kcal โดยประมาณ</div>
+                  <div className="font-body text-xs" style={{ color: PALETTE.muted }}>kcal · แก้ไขได้</div>
                 </div>
                 <HealthScoreBadge score={result.healthScore} />
               </div>
@@ -1042,42 +1264,83 @@ ${allergyContext}
                     className="rounded-2xl overflow-hidden organic-shadow anim-fadeIn"
                     style={{ backgroundColor: PALETTE.paper }}
                   >
-                    <div className="flex items-center gap-3 p-3">
-                      {f.image ? (
-                        <img src={f.image} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-                      ) : (
-                        <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: PALETTE.shell }}>
-                          <UtensilsCrossed size={20} color={PALETTE.sage} />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-body font-medium text-sm truncate" style={{ color: PALETTE.forest }}>
-                          {f.name}
-                        </div>
-                        <div className="font-body text-xs" style={{ color: PALETTE.muted }}>
-                          {f.day} · {f.time}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="font-display text-sm font-semibold" style={{ color: PALETTE.sageDark }}>
-                            {f.calories} kcal
-                          </span>
-                          {f.healthScore && (
-                            <span className="font-accent text-tiny px-1.5 py-0.5 rounded-md"
-                              style={{ backgroundColor: PALETTE.shell, color: PALETTE.gold }}
-                            >
-                              สุขภาพ {f.healthScore}/10
-                            </span>
-                          )}
+                    {editingId === f.id ? (
+                      <div className="p-3 anim-fadeIn">
+                        <input value={editName} onChange={e => setEditName(e.target.value)}
+                          placeholder="ชื่ออาหาร"
+                          className="font-body w-full px-3 py-2 rounded-xl text-sm mb-2"
+                          style={{ backgroundColor: PALETTE.shell, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
+                          autoFocus
+                        />
+                        <input value={editCal} onChange={e => setEditCal(e.target.value.replace(/\D/g, ''))}
+                          placeholder="แคลอรี่"
+                          inputMode="numeric"
+                          className="font-body w-full px-3 py-2 rounded-xl text-sm mb-2"
+                          style={{ backgroundColor: PALETTE.shell, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
+                        />
+                        <div className="flex gap-2">
+                          <button onClick={() => setEditingId(null)}
+                            className="smooth-tap flex-1 py-2 rounded-xl font-display text-xs"
+                            style={{ backgroundColor: PALETTE.shell, color: PALETTE.forest }}
+                          >ยกเลิก</button>
+                          <button onClick={() => {
+                              editFood(f.id, { name: editName.trim() || f.name, calories: +editCal || f.calories });
+                              setEditingId(null);
+                            }}
+                            className="smooth-tap flex-[2] py-2 rounded-xl font-display font-semibold text-xs text-white"
+                            style={{ backgroundColor: PALETTE.sageDark }}
+                          >บันทึก</button>
                         </div>
                       </div>
-                      <button onClick={() => removeFood(f.id)}
-                        className="smooth-tap w-8 h-8 rounded-full flex items-center justify-center"
-                        style={{ color: PALETTE.muted }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                    ) : (
+                      <div className="flex items-center gap-3 p-3">
+                        {f.image ? (
+                          <img src={f.image} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: PALETTE.shell }}>
+                            <UtensilsCrossed size={20} color={PALETTE.sage} />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-body font-medium text-sm truncate" style={{ color: PALETTE.forest }}>
+                            {f.name}
+                          </div>
+                          <div className="font-body text-xs" style={{ color: PALETTE.muted }}>
+                            {f.day} · {f.time}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="font-display text-sm font-semibold" style={{ color: PALETTE.sageDark }}>
+                              {f.calories} kcal
+                            </span>
+                            {f.healthScore && (
+                              <span className="font-accent text-tiny px-1.5 py-0.5 rounded-md"
+                                style={{ backgroundColor: PALETTE.shell, color: PALETTE.gold }}
+                              >
+                                สุขภาพ {f.healthScore}/10
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button onClick={() => {
+                            setEditingId(f.id);
+                            setEditName(f.name);
+                            setEditCal(String(f.calories || ''));
+                          }}
+                          className="smooth-tap w-8 h-8 rounded-full flex items-center justify-center"
+                          style={{ color: PALETTE.sageDark }}
+                          title="แก้ไข"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button onClick={() => removeFood(f.id)}
+                          className="smooth-tap w-8 h-8 rounded-full flex items-center justify-center"
+                          style={{ color: PALETTE.muted }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1127,12 +1390,72 @@ function MedicineCabinet({ medicines, addMedicine, removeMedicine, onModalChange
   const [name, setName] = useState('');
   const [dosage, setDosage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState(null);
   const [expanded, setExpanded] = useState(null);
+  const scanFileRef = useRef(null);
 
   useEffect(() => {
     onModalChange?.(adding);
     return () => onModalChange?.(false);
   }, [adding]);
+
+  const scanLabel = async (file) => {
+    setScanning(true);
+    setScanError(null);
+    try {
+      const b64 = await fileToBase64(file);
+      const response = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 800,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: file.type, data: b64 } },
+              { type: 'text', text: `ดูฉลากยาในรูปนี้ และสกัดข้อมูลออกมา
+
+**กฎสำคัญ:**
+- ดูได้เฉพาะ "ฉลากยา" เท่านั้น (ฉลากบนซอง/กล่อง/ขวดยา ที่มีตัวอักษรชัดเจน)
+- ห้ามเดาจากรูปร่าง สี หรือเม็ดยาเปล่าๆ — ถ้าไม่เห็นฉลากชัด ให้ตอบ {"error": "ไม่เห็นฉลากยาที่ชัดเจน กรุณาถ่ายฉลากให้ชัดอีกครั้ง"}
+- ถ้ารูปไม่ใช่ยา ให้ตอบ {"error": "รูปนี้ไม่ใช่ฉลากยา"}
+
+ตอบเป็น JSON เท่านั้น ห้ามมี markdown:
+{
+  "name": "ชื่อยา/ตัวยาสำคัญที่อ่านจากฉลากได้",
+  "dosage": "ขนาดยา/strength เช่น '500mg'",
+  "category": "ประเภทยาสั้นๆ เช่น แก้ปวด/ลดไข้",
+  "usage": "ใช้รักษาอะไร 1-2 ประโยค",
+  "dosageTip": "วิธีกินที่อ่านจากฉลาก หรือทั่วไปถ้าไม่มี",
+  "warnings": ["คำเตือนสำคัญ 2-4 ข้อ"]
+}` }
+            ]
+          }]
+        })
+      });
+      const data = await response.json();
+      const text = data.content.map(b => b.text || '').join('').replace(/```json|```/g, '').trim();
+      const info = JSON.parse(text);
+      if (info.error) {
+        setScanError(info.error);
+        return;
+      }
+      addMedicine({ id: 'm' + Date.now(), ...info });
+      setAdding(false);
+    } catch (e) {
+      setScanError('สแกนไม่สำเร็จ ลองถ่ายใหม่นะคะ');
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const onScanFile = (e) => {
+    const f = e.target.files?.[0];
+    if (f) scanLabel(f);
+    e.target.value = '';
+  };
 
   const submit = async () => {
     if (!name.trim()) return;
@@ -1214,14 +1537,58 @@ function MedicineCabinet({ medicines, addMedicine, removeMedicine, onModalChange
             <h3 className="font-display text-xl font-bold mb-1" style={{ color: PALETTE.sageDeep }}>
               เพิ่มยาเข้าตู้
             </h3>
-            <p className="font-body text-sm mb-5" style={{ color: PALETTE.muted }}>
-              พิมพ์ชื่อยา น้องไกด์จะหาข้อมูลให้
+            <p className="font-body text-sm mb-4" style={{ color: PALETTE.muted }}>
+              ถ่ายฉลากยา หรือพิมพ์ชื่อก็ได้
             </p>
+
+            {/* Scan button */}
+            <input ref={scanFileRef} type="file" accept="image/*" capture="environment"
+              onChange={onScanFile} className="hidden"
+            />
+            <button onClick={() => scanFileRef.current?.click()} disabled={scanning || busy}
+              className="smooth-tap w-full p-4 rounded-2xl mb-3 flex items-center gap-3 relative overflow-hidden disabled:opacity-50"
+              style={{ backgroundColor: PALETTE.sageDeep }}
+            >
+              <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full opacity-20"
+                style={{ backgroundColor: PALETTE.gold }} />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 relative"
+                style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}
+              >
+                {scanning ? <Loader2 size={18} color="white" className="anim-spin-slow" /> : <ScanLine size={18} color={PALETTE.gold} />}
+              </div>
+              <div className="text-left relative flex-1">
+                <div className="font-display font-semibold text-white text-sm">
+                  {scanning ? 'กำลังอ่านฉลาก...' : 'ถ่ายฉลากยา'}
+                </div>
+                <div className="font-body text-tiny text-white/70 mt-0.5">
+                  AI จะอ่านชื่อยาและข้อมูลให้
+                </div>
+              </div>
+            </button>
+
+            {scanError && (
+              <div className="rounded-xl p-3 mb-3 flex items-start gap-2"
+                style={{ backgroundColor: PALETTE.coralSoft }}
+              >
+                <AlertCircle size={16} color={PALETTE.coral} className="flex-shrink-0 mt-0.5" />
+                <div className="font-body text-xs flex-1" style={{ color: PALETTE.coral }}>{scanError}</div>
+                <button onClick={() => setScanError(null)} style={{ color: PALETTE.coral }}>
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 h-px" style={{ backgroundColor: PALETTE.mist }} />
+              <div className="font-accent text-tiny" style={{ color: PALETTE.muted }}>หรือพิมพ์เอง</div>
+              <div className="flex-1 h-px" style={{ backgroundColor: PALETTE.mist }} />
+            </div>
+
             <input value={name} onChange={e => setName(e.target.value)}
               placeholder="ชื่อยา เช่น พาราเซตามอล 500mg"
               className="font-body w-full px-5 py-4 rounded-2xl text-base mb-3"
               style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
-              autoFocus
             />
             <input value={dosage} onChange={e => setDosage(e.target.value)}
               placeholder="ขนาดยา / โดส (ถ้ามี)"
@@ -1229,13 +1596,13 @@ function MedicineCabinet({ medicines, addMedicine, removeMedicine, onModalChange
               style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
             />
             <div className="flex gap-2">
-              <button onClick={() => setAdding(false)} disabled={busy}
-                className="smooth-tap flex-1 py-4 rounded-2xl font-display font-medium"
+              <button onClick={() => setAdding(false)} disabled={busy || scanning}
+                className="smooth-tap flex-1 py-4 rounded-2xl font-display font-medium disabled:opacity-50"
                 style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest }}
               >
                 ยกเลิก
               </button>
-              <button onClick={submit} disabled={busy || !name.trim()}
+              <button onClick={submit} disabled={busy || scanning || !name.trim()}
                 className="smooth-tap flex-2 py-4 rounded-2xl font-display font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ backgroundColor: PALETTE.sageDark }}
               >
@@ -2375,6 +2742,7 @@ export default function App() {
             <FoodLog profile={profile} foodLog={foodLog}
               addFood={(f) => setFoodLog([...foodLog, f])}
               removeFood={(id) => setFoodLog(foodLog.filter(x => x.id !== id))}
+              editFood={(id, patch) => setFoodLog(foodLog.map(x => x.id === id ? { ...x, ...patch } : x))}
             />
           )}
           {screen === 'chat' && (
