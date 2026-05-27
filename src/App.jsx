@@ -199,6 +199,75 @@ function lastNDaysKeys(n) {
   return keys;
 }
 
+// Export AI memory to a downloadable JSON file
+function exportMemory(corrections) {
+  const data = {
+    app: 'GINYARAIDEE',
+    type: 'ai-memory',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    count: corrections.length,
+    corrections: corrections.map(c => ({
+      aiName: c.aiName,
+      aiCal: c.aiCal,
+      realName: c.realName,
+      realCal: c.realCal,
+    })),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ginyaraidee-memory-${todayKey()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
+// Import AI memory from a JSON file
+async function handleImportMemory(e, addCorrection, existing) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  e.target.value = '';
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (data.app !== 'GINYARAIDEE' || data.type !== 'ai-memory') {
+      alert('ไฟล์ไม่ถูกต้อง — ต้องเป็นไฟล์ AI memory จาก GINYARAIDEE เท่านั้น');
+      return;
+    }
+    const incoming = data.corrections || [];
+    if (incoming.length === 0) {
+      alert('ไฟล์ว่าง — ไม่มีข้อมูลให้นำเข้า');
+      return;
+    }
+    // De-duplicate by (aiName + realName) — skip ones already in memory
+    const existingKeys = new Set((existing || []).map(c => `${c.aiName}|${c.realName}`));
+    let added = 0, skipped = 0;
+    incoming.forEach(c => {
+      const key = `${c.aiName}|${c.realName}`;
+      if (existingKeys.has(key)) {
+        skipped++;
+      } else {
+        existingKeys.add(key);
+        addCorrection({
+          id: 'c' + Date.now() + Math.random().toString(36).slice(2, 7),
+          ts: Date.now(),
+          aiName: c.aiName || '',
+          aiCal: +c.aiCal || 0,
+          realName: c.realName || '',
+          realCal: +c.realCal || 0,
+          imported: true,
+        });
+        added++;
+      }
+    });
+    alert(`นำเข้าสำเร็จ!\nเพิ่ม ${added} รายการ\nข้ามที่มีอยู่แล้ว ${skipped} รายการ`);
+  } catch (err) {
+    alert('อ่านไฟล์ไม่สำเร็จ ตรวจสอบไฟล์อีกครั้ง');
+  }
+}
+
 /* ============================================================
    AI Personalities — auto-select by age, user can override
    ============================================================ */
@@ -305,6 +374,98 @@ function resolvePersonality(personalityId, age) {
     return PERSONALITIES[pickPersonalityByAge(age)];
   }
   return PERSONALITIES[personalityId] || PERSONALITIES.default;
+}
+
+/* ============================================================
+   Thai Food Dictionary — ค่าแคลอ้างอิงสำหรับอาหารไทยยอดฮิต
+   ============================================================ */
+
+const THAI_FOOD_DICT = [
+  // อาหารจานเดียว — ข้าว
+  { name: 'ข้าวมันไก่', kcal: 650, p: 30, c: 75, f: 25 },
+  { name: 'ข้าวมันไก่ทอด', kcal: 750, p: 32, c: 75, f: 35 },
+  { name: 'ข้าวขาหมู', kcal: 700, p: 35, c: 80, f: 28 },
+  { name: 'ข้าวหมูแดง', kcal: 600, p: 28, c: 75, f: 22 },
+  { name: 'ข้าวหมูกรอบ', kcal: 700, p: 30, c: 75, f: 32 },
+  { name: 'ข้าวคลุกกะปิ', kcal: 550, p: 18, c: 80, f: 18 },
+  { name: 'ข้าวผัดหมู', kcal: 600, p: 22, c: 80, f: 22 },
+  { name: 'ข้าวผัดกุ้ง', kcal: 580, p: 25, c: 80, f: 20 },
+  { name: 'ข้าวผัดปู', kcal: 600, p: 22, c: 80, f: 22 },
+  { name: 'ข้าวผัดสับปะรด', kcal: 550, p: 18, c: 85, f: 18 },
+  { name: 'ข้าวซอย', kcal: 650, p: 25, c: 70, f: 30 },
+  { name: 'ข้าวเหนียวหมูปิ้ง', kcal: 500, p: 22, c: 65, f: 18 },
+  { name: 'ข้าวเหนียวไก่ย่าง', kcal: 600, p: 30, c: 75, f: 20 },
+  // ผัดกะเพรา
+  { name: 'ผัดกะเพราหมูสับ', kcal: 450, p: 25, c: 50, f: 18 },
+  { name: 'ผัดกะเพราหมูสับ + ไข่ดาว', kcal: 600, p: 32, c: 52, f: 28 },
+  { name: 'ผัดกะเพราไก่', kcal: 480, p: 28, c: 52, f: 18 },
+  { name: 'ผัดกะเพราไก่ + ไข่ดาว', kcal: 620, p: 35, c: 54, f: 28 },
+  { name: 'ผัดกะเพราหมูกรอบ', kcal: 600, p: 25, c: 55, f: 30 },
+  // ก๋วยเตี๋ยว
+  { name: 'ก๋วยเตี๋ยวต้มยำ', kcal: 350, p: 18, c: 50, f: 10 },
+  { name: 'ก๋วยเตี๋ยวเรือ', kcal: 380, p: 20, c: 45, f: 12 },
+  { name: 'ก๋วยเตี๋ยวน้ำใส', kcal: 350, p: 18, c: 50, f: 8 },
+  { name: 'ก๋วยเตี๋ยวเย็นตาโฟ', kcal: 400, p: 18, c: 55, f: 12 },
+  { name: 'ผัดไทย', kcal: 550, p: 22, c: 75, f: 18 },
+  { name: 'ผัดซีอิ๊ว', kcal: 600, p: 25, c: 75, f: 22 },
+  { name: 'ราดหน้า', kcal: 500, p: 22, c: 65, f: 18 },
+  { name: 'หมี่กรอบ', kcal: 550, p: 18, c: 70, f: 22 },
+  // ส้มตำ / ยำ
+  { name: 'ส้มตำไทย', kcal: 200, p: 6, c: 35, f: 5 },
+  { name: 'ส้มตำปูปลาร้า', kcal: 220, p: 8, c: 35, f: 6 },
+  { name: 'ส้มตำไทยไข่เค็ม', kcal: 280, p: 12, c: 35, f: 10 },
+  { name: 'ยำวุ้นเส้น', kcal: 300, p: 18, c: 35, f: 10 },
+  { name: 'ลาบหมู', kcal: 250, p: 25, c: 8, f: 15 },
+  { name: 'น้ำตกหมู', kcal: 280, p: 25, c: 8, f: 18 },
+  { name: 'หมูย่างจิ้มแจ่ว', kcal: 350, p: 30, c: 5, f: 22 },
+  // แกง
+  { name: 'แกงเขียวหวานไก่ + ข้าว', kcal: 550, p: 22, c: 65, f: 22 },
+  { name: 'แกงมัสมั่นไก่ + ข้าว', kcal: 650, p: 25, c: 70, f: 28 },
+  { name: 'แกงเผ็ดเป็ดย่าง + ข้าว', kcal: 600, p: 28, c: 65, f: 25 },
+  { name: 'แกงจืดเต้าหู้หมูสับ', kcal: 180, p: 15, c: 8, f: 10 },
+  { name: 'ต้มยำกุ้ง', kcal: 200, p: 22, c: 10, f: 8 },
+  { name: 'ต้มข่าไก่', kcal: 250, p: 18, c: 10, f: 15 },
+  // ของทอด
+  { name: 'ไก่ทอด', kcal: 300, p: 25, c: 5, f: 20 }, // ต่อชิ้น
+  { name: 'หมูทอดกระเทียม', kcal: 350, p: 30, c: 5, f: 22 },
+  { name: 'ปลาทอด', kcal: 280, p: 25, c: 5, f: 18 },
+  { name: 'ไข่เจียว', kcal: 200, p: 12, c: 2, f: 16 },
+  { name: 'ไข่ดาว', kcal: 110, p: 7, c: 1, f: 9 },
+  { name: 'เฟรนช์ฟราย', kcal: 350, p: 4, c: 45, f: 17 },
+  // อาหารเช้า / เบา
+  { name: 'โจ๊กหมูใส่ไข่', kcal: 300, p: 18, c: 40, f: 8 },
+  { name: 'ข้าวต้มหมู', kcal: 250, p: 15, c: 40, f: 5 },
+  { name: 'โอเลี้ยง + ปาท่องโก๋', kcal: 350, p: 5, c: 50, f: 15 },
+  { name: 'ขนมปังปิ้งเนยน้ำตาล', kcal: 280, p: 5, c: 40, f: 12 },
+  // ฟาสต์ฟู้ด
+  { name: 'แฮมเบอร์เกอร์', kcal: 500, p: 22, c: 45, f: 25 },
+  { name: 'พิซซ่า', kcal: 280, p: 12, c: 35, f: 11 }, // ต่อชิ้น
+  { name: 'KFC ชิ้นเล็ก', kcal: 250, p: 18, c: 8, f: 16 },
+  { name: 'ข้าวกะเพราไก่ KFC', kcal: 700, p: 35, c: 75, f: 28 },
+  { name: 'ราเมง', kcal: 500, p: 22, c: 65, f: 18 },
+  { name: 'ซูชิ', kcal: 50, p: 3, c: 8, f: 1 }, // ต่อชิ้น
+  // เครื่องดื่ม
+  { name: 'ชาเย็น', kcal: 200, p: 2, c: 35, f: 6 },
+  { name: 'ชาเขียวเย็น', kcal: 180, p: 2, c: 32, f: 5 },
+  { name: 'กาแฟเย็น', kcal: 220, p: 3, c: 35, f: 8 },
+  { name: 'นมเย็น', kcal: 250, p: 6, c: 40, f: 7 },
+  { name: 'น้ำอัดลม 250ml', kcal: 105, p: 0, c: 27, f: 0 },
+  { name: 'น้ำเต้าหู้', kcal: 80, p: 4, c: 8, f: 3 },
+  // ขนม / ของหวาน
+  { name: 'ข้าวเหนียวมะม่วง', kcal: 400, p: 5, c: 75, f: 8 },
+  { name: 'บัวลอย', kcal: 300, p: 4, c: 55, f: 7 },
+  { name: 'รวมมิตร', kcal: 350, p: 4, c: 65, f: 8 },
+  { name: 'น้ำแข็งใส', kcal: 200, p: 3, c: 45, f: 1 },
+  { name: 'ทับทิมกรอบ', kcal: 350, p: 3, c: 65, f: 8 },
+  { name: 'โดนัท 1 ชิ้น', kcal: 250, p: 4, c: 30, f: 12 },
+  { name: 'เค้กช็อกโกแลต 1 ชิ้น', kcal: 350, p: 5, c: 45, f: 16 },
+];
+
+function buildDictHint() {
+  // Build a compact reference for the AI
+  return THAI_FOOD_DICT.map(f =>
+    `- ${f.name}: ${f.kcal} kcal (P:${f.p}/C:${f.c}/F:${f.f}g)`
+  ).join('\n');
 }
 
 
@@ -965,10 +1126,11 @@ function ActionCard({ icon, title, subtitle, bg, accent, onClick, delay }) {
    Food Log Screen — photo + AI analysis
    ============================================================ */
 
-function FoodLog({ profile, foodLog, addFood, removeFood, editFood }) {
+function FoodLog({ profile, foodLog, addFood, removeFood, editFood, corrections, addCorrection }) {
   const [busy, setBusy] = useState(false);
   const [previewImg, setPreviewImg] = useState(null);
   const [result, setResult] = useState(null);
+  const [originalResult, setOriginalResult] = useState(null); // before user edits — for learning
   const [error, setError] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
@@ -991,10 +1153,28 @@ function FoodLog({ profile, foodLog, addFood, removeFood, editFood }) {
         ? `ผู้ใช้แพ้อาหารต่อไปนี้: ${profile.foodAllergy.join(', ')} ถ้าเจอในรูป ให้ใส่ในช่อง warnings ทันที`
         : '';
 
-      const prompt = `คุณคือนักโภชนาการมืออาชีพระดับสูง วิเคราะห์รูปอาหารแบบ "แม่นยำที่สุดเท่าที่เป็นไปได้" — ตรงไปตรงมา ไม่เกรงใจ แต่ยังเป็นมิตร
-${allergyContext}
+      // Build learning context from recent corrections
+      const recentCorrections = (corrections || []).slice(-15);
+      const learningContext = recentCorrections.length > 0
+        ? `\n\n**สิ่งที่ผู้ใช้คนนี้แก้ไขล่าสุด (เรียนรู้จากนี้ — สไตล์อาหาร/ขนาดจาน/รสนิยม):**
+${recentCorrections.map((c, i) => `${i+1}. AI ทาย "${c.aiName}" ${c.aiCal} kcal → ผู้ใช้แก้เป็น "${c.realName}" ${c.realCal} kcal`).join('\n')}
 
-ขั้นตอนการวิเคราะห์ (ทำในใจก่อนตอบ):
+ใช้ pattern นี้ปรับการทาย ถ้ารูปนี้คล้ายกับที่ผู้ใช้เคยแก้ ให้ใช้ชื่อ/แคลที่ใกล้เคียงกับที่ผู้ใช้ระบุ
+`
+        : '';
+
+      const prompt = `คุณคือนักโภชนาการมืออาชีพระดับสูง วิเคราะห์รูปอาหารแบบ "แม่นยำที่สุดเท่าที่เป็นไปได้" — ตรงไปตรงมา ไม่เกรงใจ แต่ยังเป็นมิตร
+${allergyContext}${learningContext}
+
+**ฐานข้อมูลอาหารไทย (ใช้เป็นค่าอ้างอิงหลัก ถ้าตรงกับรายการในรูป ให้ใช้ค่านี้):**
+${buildDictHint()}
+
+**ขั้นตอนแรก — ตรวจสอบรูปก่อน:**
+- ถ้าในรูปไม่มีอาหารชัดเจน (รูปขยะ, รูปคน, รูปสัตว์, รูปวิว, รูปเบลอมาก, รูปมืดดูไม่ออก, รูปสุ่ม)
+- หรือเป็นภาพล้อเล่น ภาพการ์ตูน ภาพ meme
+- → ตอบ JSON: {"rejected": true, "reason": "บอกสั้นๆ ว่าทำไมไม่วิเคราะห์ เช่น 'รูปนี้ไม่ใช่อาหารนะคะ', 'รูปเบลอมาก ถ่ายใหม่อีกครั้งได้ไหมคะ'"} แล้วหยุด
+
+**ถ้าเป็นอาหารจริง ทำตามขั้นตอน:**
 1. ระบุอาหารทุกอย่างที่เห็นในจาน (รวมเครื่องปรุง ผัก น้ำจิ้ม)
 2. ประมาณ "ปริมาณจริง" จากรูป — ดูขนาดจาน/ช้อน เป็นตัวอ้างอิง:
    - จานข้าวมาตรฐาน Ø 22-25cm, ชามก๋วยเตี๋ยว 18-22cm, จานเล็ก 18cm
@@ -1003,7 +1183,7 @@ ${allergyContext}
 3. คำนวณแคลของแต่ละส่วนแยกกัน แล้วบวกรวม (อย่ามั่ว ให้ลองคิดทีละชิ้น)
 4. ถ้าเห็นน้ำมัน/ทอด/ผัด ให้บวกแคลน้ำมันเพิ่ม (1 ช้อนโต๊ะ ≈ 120 kcal)
 5. ระบุอาหารไทยให้ถูกต้อง (ผัดกะเพรา ≠ ผัดพริกหวาน, ต้มยำน้ำใส ≠ น้ำข้น)
-6. ถ้ารูปไม่ชัด ภาพมืด หรือไม่ใช่อาหาร — ตั้งค่า "uncertain": true และอธิบายในช่อง verdict
+6. ${recentCorrections.length > 0 ? 'ใช้ข้อมูลการแก้ไขข้างบนช่วยตัดสินใจ' : 'ถ้าไม่แน่ใจมาก ตั้งค่า "confidence": "ต่ำ"'}
 
 "ตอบเป็น JSON เท่านั้น" ห้ามมี markdown ห้าม backtick ห้ามข้อความอื่น โครงสร้าง:
 {
@@ -1017,6 +1197,7 @@ ${allergyContext}
   "healthScore": 1-10 (10=ดีมาก),
   "confidence": "สูง/ปานกลาง/ต่ำ" (ความมั่นใจในการประมาณ),
   "uncertain": true/false,
+  "usedMemory": ${recentCorrections.length > 0 ? 'true ถ้าใช้ข้อมูลการแก้ไขช่วย' : 'false'},
   "verdict": "คำวิจารณ์ตรงๆ 1-2 ประโยค จริงใจไม่เกรงใจ",
   "tips": "คำแนะนำสั้น ทำให้สุขภาพดีขึ้น",
   "warnings": ["คำเตือนถ้ามี เช่น 'เกลือสูง', 'น้ำตาลเยอะ', 'มีกุ้ง (พี่แพ้)'"]
@@ -1040,7 +1221,21 @@ ${allergyContext}
       const data = await response.json();
       const text = data.content.map(b => b.text || '').join('').replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(text);
-      setResult({ ...parsed, image: dataUrl });
+
+      // If AI rejected the image (not food, blurry, etc.)
+      if (parsed.rejected) {
+        setError(parsed.reason || 'รูปนี้ไม่ใช่อาหาร ลองถ่ายใหม่นะคะ');
+        setPreviewImg(null);
+        setBusy(false);
+        return;
+      }
+
+      const withImg = { ...parsed, image: dataUrl };
+      setResult(withImg);
+      setOriginalResult({
+        displayName: parsed.displayName,
+        totalCalories: parsed.totalCalories,
+      });
     } catch (e) {
       setError('วิเคราะห์ไม่สำเร็จ ลองใหม่อีกครั้งนะคะ');
     } finally {
@@ -1055,6 +1250,23 @@ ${allergyContext}
 
   const save = () => {
     if (!result) return;
+
+    // If user edited name or calories, record the correction for learning
+    if (originalResult && addCorrection) {
+      const nameChanged = originalResult.displayName !== result.displayName;
+      const calChanged = Math.abs((originalResult.totalCalories || 0) - (result.totalCalories || 0)) > 10;
+      if (nameChanged || calChanged) {
+        addCorrection({
+          id: 'c' + Date.now(),
+          ts: Date.now(),
+          aiName: originalResult.displayName,
+          aiCal: originalResult.totalCalories,
+          realName: result.displayName,
+          realCal: result.totalCalories,
+        });
+      }
+    }
+
     addFood({
       id: 'f' + Date.now(),
       day: today,
@@ -1069,6 +1281,7 @@ ${allergyContext}
       healthScore: result.healthScore,
     });
     setResult(null);
+    setOriginalResult(null);
     setPreviewImg(null);
   };
 
@@ -1143,18 +1356,27 @@ ${allergyContext}
                 <div className="absolute inset-0"
                   style={{ background: 'linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.7) 100%)' }}
                 />
-                {result.confidence && (
-                  <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full font-accent text-tiny"
-                    style={{
-                      backgroundColor: result.confidence === 'สูง' ? 'rgba(135,168,120,0.95)'
-                        : result.confidence === 'ปานกลาง' ? 'rgba(201,163,107,0.95)'
-                        : 'rgba(217,104,74,0.95)',
-                      color: 'white',
-                    }}
-                  >
-                    ความมั่นใจ: {result.confidence}
-                  </div>
-                )}
+                <div className="absolute top-3 right-3 left-3 flex items-start justify-between gap-2 pointer-events-none">
+                  {result.usedMemory ? (
+                    <div className="px-2.5 py-1 rounded-full font-accent text-tiny flex items-center gap-1"
+                      style={{ backgroundColor: 'rgba(201,163,107,0.95)', color: 'white' }}
+                    >
+                      <Sparkles size={10} /> เรียนรู้จากที่พี่แก้
+                    </div>
+                  ) : <div />}
+                  {result.confidence && (
+                    <div className="px-2.5 py-1 rounded-full font-accent text-tiny"
+                      style={{
+                        backgroundColor: result.confidence === 'สูง' ? 'rgba(135,168,120,0.95)'
+                          : result.confidence === 'ปานกลาง' ? 'rgba(201,163,107,0.95)'
+                          : 'rgba(217,104,74,0.95)',
+                        color: 'white',
+                      }}
+                    >
+                      ความมั่นใจ: {result.confidence}
+                    </div>
+                  )}
+                </div>
                 <div className="absolute bottom-3 left-4 right-4 text-white">
                   <input
                     value={result.displayName || ''}
@@ -1304,7 +1526,20 @@ ${allergyContext}
                             style={{ backgroundColor: PALETTE.shell, color: PALETTE.forest }}
                           >ยกเลิก</button>
                           <button onClick={() => {
-                              editFood(f.id, { name: editName.trim() || f.name, calories: +editCal || f.calories });
+                              const newName = editName.trim() || f.name;
+                              const newCal = +editCal || f.calories;
+                              // Record correction if name or cal actually changed
+                              if (addCorrection && (newName !== f.name || Math.abs(newCal - (f.calories || 0)) > 10)) {
+                                addCorrection({
+                                  id: 'c' + Date.now(),
+                                  ts: Date.now(),
+                                  aiName: f.name,
+                                  aiCal: f.calories,
+                                  realName: newName,
+                                  realCal: newCal,
+                                });
+                              }
+                              editFood(f.id, { name: newName, calories: newCal });
                               setEditingId(null);
                             }}
                             className="smooth-tap flex-[2] py-2 rounded-xl font-display font-semibold text-xs text-white"
@@ -2238,10 +2473,12 @@ ${answersText}
    Profile / Privacy
    ============================================================ */
 
-function Profile({ profile, privacy, setPrivacy, setProfile, reset, onModalChange, personality, setPersonality }) {
+function Profile({ profile, privacy, setPrivacy, setProfile, reset, onModalChange, personality, setPersonality, corrections, clearCorrections, addCorrection }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(profile);
+  const [importMsg, setImportMsg] = useState(null);
   const bmi = calcBMI(profile.weight, profile.height);
+  const importMemoryRef = useRef(null);
 
   useEffect(() => {
     onModalChange?.(editing);
@@ -2438,6 +2675,90 @@ function Profile({ profile, privacy, setPrivacy, setProfile, reset, onModalChang
               );
             })}
           </div>
+        </div>
+
+        {/* AI Memory card */}
+        <div className="rounded-2xl p-4 mb-4 organic-shadow anim-slideUp delay-2"
+          style={{ backgroundColor: PALETTE.paper }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="font-display font-semibold flex items-center gap-2"
+              style={{ color: PALETTE.sageDeep }}
+            >
+              <Sparkles size={16} color={PALETTE.gold} /> AI กำลังเรียนรู้
+            </div>
+            {corrections && corrections.length > 0 && (
+              <span className="font-display text-tiny font-semibold px-2 py-0.5 rounded-md"
+                style={{ backgroundColor: PALETTE.sage + '22', color: PALETTE.sageDark }}
+              >
+                {corrections.length} ครั้ง
+              </span>
+            )}
+          </div>
+          <p className="font-body text-xs leading-relaxed mb-3" style={{ color: PALETTE.muted }}>
+            ทุกครั้งที่คุณแก้ชื่อหรือแคลอาหารที่ AI ทาย AI จะจำและใช้ในการวิเคราะห์ครั้งถัดไป
+            ให้แม่นยำขึ้นตามสไตล์การกินของคุณ
+          </p>
+          {corrections && corrections.length > 0 ? (
+            <>
+              <div className="space-y-1.5 mb-3">
+                {corrections.slice(-3).reverse().map((c) => (
+                  <div key={c.id} className="rounded-lg p-2 flex items-center gap-2"
+                    style={{ backgroundColor: PALETTE.shell }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-body text-xs truncate" style={{ color: PALETTE.muted }}>
+                        {c.aiName} <span style={{ color: PALETTE.muted }}>({c.aiCal} kcal)</span>
+                      </div>
+                      <div className="font-body text-xs font-medium truncate" style={{ color: PALETTE.sageDark }}>
+                        → {c.realName} <span style={{ color: PALETTE.sage }}>({c.realCal} kcal)</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => exportMemory(corrections)}
+                  className="smooth-tap font-body text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+                  style={{ backgroundColor: PALETTE.sage + '22', color: PALETTE.sageDark }}
+                >
+                  <ExternalLink size={12} /> Export ความจำ
+                </button>
+                <button onClick={() => importMemoryRef.current?.click()}
+                  className="smooth-tap font-body text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+                  style={{ backgroundColor: PALETTE.gold + '22', color: PALETTE.gold }}
+                >
+                  <Plus size={12} /> Import
+                </button>
+                <button onClick={() => {
+                    if (confirm('ลบประวัติการแก้ไขทั้งหมด? AI จะลืมสิ่งที่เรียนรู้มา')) clearCorrections?.();
+                  }}
+                  className="smooth-tap font-body text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+                  style={{ backgroundColor: PALETTE.coralSoft, color: PALETTE.coral }}
+                >
+                  <Trash2 size={12} /> ลบ
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="rounded-lg p-3 text-center mb-3" style={{ backgroundColor: PALETTE.shell }}>
+                <div className="font-body text-xs" style={{ color: PALETTE.muted }}>
+                  ยังไม่มีการแก้ไข แก้ชื่อ/แคลตอนวิเคราะห์อาหารเพื่อสอน AI ได้เลย
+                </div>
+              </div>
+              <button onClick={() => importMemoryRef.current?.click()}
+                className="smooth-tap w-full font-body text-xs py-2 rounded-lg flex items-center justify-center gap-1.5"
+                style={{ backgroundColor: PALETTE.shell, color: PALETTE.sageDark }}
+              >
+                <Plus size={12} /> Import ความจำจากเพื่อน
+              </button>
+            </>
+          )}
+          <input ref={importMemoryRef} type="file" accept=".json,application/json"
+            onChange={(e) => handleImportMemory(e, addCorrection, corrections)}
+            className="hidden"
+          />
         </div>
 
         {/* Edit profile */}
@@ -3868,6 +4189,7 @@ export default function App() {
   const [exercises, _setExercises] = useState(() => load('gyn_exercises', []));
   const [sleep, _setSleep] = useState(() => load('gyn_sleep', []));
   const [vitals, _setVitals] = useState(() => load('gyn_vitals', []));
+  const [corrections, _setCorrections] = useState(() => load('gyn_corrections', []));
   const [modalOpen, setModalOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
@@ -3928,6 +4250,12 @@ export default function App() {
   const setExercises = (v) => { _setExercises(v); save('gyn_exercises', v); };
   const setSleep = (v) => { _setSleep(v); save('gyn_sleep', v); };
   const setVitals = (v) => { _setVitals(v); save('gyn_vitals', v); };
+  const setCorrections = (v) => {
+    // Keep max 50 most recent corrections so it doesn't bloat
+    const trimmed = v.slice(-50);
+    _setCorrections(trimmed);
+    save('gyn_corrections', trimmed);
+  };
 
   useEffect(() => {
     document.body.style.backgroundColor = PALETTE.cream;
@@ -3947,9 +4275,9 @@ export default function App() {
 
   const reset = () => {
     ['gyn_profile','gyn_foodlog','gyn_chat','gyn_meds','gyn_privacy','gyn_persona',
-     'gyn_water','gyn_exercises','gyn_sleep','gyn_vitals','gyn_news'].forEach(k => localStorage.removeItem(k));
+     'gyn_water','gyn_exercises','gyn_sleep','gyn_vitals','gyn_news','gyn_corrections'].forEach(k => localStorage.removeItem(k));
     _setProfile(null); _setFoodLog([]); _setChat([]); _setMeds([]);
-    _setWater([]); _setExercises([]); _setSleep([]); _setVitals([]);
+    _setWater([]); _setExercises([]); _setSleep([]); _setVitals([]); _setCorrections([]);
     _setPrivacy({ showHeight: true, showWeight: true, showAge: true, showAllergies: false });
     _setPersonality('auto');
     setScreen('home');
@@ -3994,6 +4322,8 @@ export default function App() {
               addFood={(f) => setFoodLog([...foodLog, f])}
               removeFood={(id) => setFoodLog(foodLog.filter(x => x.id !== id))}
               editFood={(id, patch) => setFoodLog(foodLog.map(x => x.id === id ? { ...x, ...patch } : x))}
+              corrections={corrections}
+              addCorrection={(c) => setCorrections([...corrections, c])}
             />
           )}
           {screen === 'chat' && (
@@ -4016,6 +4346,9 @@ export default function App() {
             <Profile profile={profile} privacy={privacy} setPrivacy={setPrivacy}
               setProfile={setProfile} reset={reset} onModalChange={setModalOpen}
               personality={personality} setPersonality={setPersonality}
+              corrections={corrections}
+              clearCorrections={() => setCorrections([])}
+              addCorrection={(c) => setCorrections([...corrections, c])}
             />
           )}
         </div>
