@@ -2203,6 +2203,68 @@ function BottomNav({ current, onNav }) {
 }
 
 /* ============================================================
+   Update Notification
+   ============================================================ */
+
+function UpdateBanner({ info, onUpdate, onDismiss }) {
+  return (
+    <div className="fixed inset-x-0 top-0 z-50 px-4 pt-3 pointer-events-none"
+      style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}
+    >
+      <div className="max-w-md mx-auto rounded-2xl p-4 deep-shadow anim-slideUp pointer-events-auto relative overflow-hidden"
+        style={{ backgroundColor: PALETTE.sageDeep }}
+      >
+        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full opacity-20"
+          style={{ backgroundColor: PALETTE.gold }}
+        />
+        <div className="relative flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}
+          >
+            <Sparkles size={20} color={PALETTE.gold} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-accent text-tiny mb-0.5" style={{ color: PALETTE.gold }}>
+              v{info.version} · อัปเดตใหม่
+            </div>
+            <div className="font-display font-bold text-white text-sm mb-1.5">
+              {info.title}
+            </div>
+            {info.notes && info.notes.length > 0 && (
+              <ul className="space-y-0.5 mb-3">
+                {info.notes.slice(0, 4).map((n, i) => (
+                  <li key={i} className="font-body text-xs text-white/80">{n}</li>
+                ))}
+              </ul>
+            )}
+            <div className="flex gap-2">
+              <button onClick={onDismiss}
+                className="smooth-tap font-display text-xs px-3 py-1.5 rounded-xl"
+                style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: 'white' }}
+              >
+                ภายหลัง
+              </button>
+              <button onClick={onUpdate}
+                className="smooth-tap font-display font-semibold text-xs px-4 py-1.5 rounded-xl flex items-center gap-1"
+                style={{ backgroundColor: PALETTE.gold, color: PALETTE.sageDeep }}
+              >
+                <RotateCcw size={12} /> อัปเดตเลย
+              </button>
+            </div>
+          </div>
+          <button onClick={onDismiss}
+            className="smooth-tap w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ color: 'rgba(255,255,255,0.6)' }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
    Root App
    ============================================================ */
 
@@ -2226,6 +2288,46 @@ export default function App() {
   const [privacy, _setPrivacy] = useState(() => load('gyn_privacy', {
     showHeight: true, showWeight: true, showAge: true, showAllergies: false,
   }));
+  const [updateInfo, setUpdateInfo] = useState(null);
+
+  // Check for new version on load and every 5 minutes
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkVersion = async () => {
+      try {
+        // Cache-bust so we always get fresh version.json
+        const res = await fetch('/version.json?t=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) return;
+        const info = await res.json();
+        if (cancelled || !info?.version) return;
+
+        const seen = localStorage.getItem('gyn_seen_version');
+        if (seen !== info.version) {
+          setUpdateInfo(info);
+        }
+      } catch {}
+    };
+
+    checkVersion();
+    const id = setInterval(checkVersion, 5 * 60 * 1000); // every 5 min
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  const acceptUpdate = () => {
+    if (updateInfo) localStorage.setItem('gyn_seen_version', updateInfo.version);
+    // Clear caches + reload to get fresh app
+    if ('caches' in window) {
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+        .finally(() => window.location.reload());
+    } else {
+      window.location.reload();
+    }
+  };
+  const dismissUpdate = () => {
+    if (updateInfo) localStorage.setItem('gyn_seen_version', updateInfo.version);
+    setUpdateInfo(null);
+  };
 
   // Persist helpers
   const setProfile = (v) => { _setProfile(v); save('gyn_profile', v); };
@@ -2299,6 +2401,10 @@ export default function App() {
         </div>
 
         {!modalOpen && <BottomNav current={screen} onNav={setScreen} />}
+
+        {updateInfo && (
+          <UpdateBanner info={updateInfo} onUpdate={acceptUpdate} onDismiss={dismissUpdate} />
+        )}
       </div>
     </>
   );
