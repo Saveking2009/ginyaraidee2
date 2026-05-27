@@ -285,20 +285,14 @@ function resolvePersonality(personalityId, age) {
 
 function LogoMark({ size = 44 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-      <defs>
-        <linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={PALETTE.sage} />
-          <stop offset="100%" stopColor={PALETTE.sageDeep} />
-        </linearGradient>
-      </defs>
-      <circle cx="32" cy="32" r="30" fill="url(#lg1)" />
-      <path d="M22 26 Q32 14 42 26 L42 40 Q32 50 22 40 Z" fill={PALETTE.cream} opacity="0.95" />
-      <circle cx="27" cy="32" r="2.2" fill={PALETTE.sageDeep} />
-      <circle cx="37" cy="32" r="2.2" fill={PALETTE.sageDeep} />
-      <path d="M27 38 Q32 41 37 38" stroke={PALETTE.sageDeep} strokeWidth="1.8" strokeLinecap="round" fill="none" />
-      <circle cx="48" cy="18" r="3" fill={PALETTE.coral} />
-    </svg>
+    <img
+      src="/logo.png"
+      alt="GINYARAIDEE"
+      width={size}
+      height={size}
+      style={{ width: size, height: size, display: 'block', objectFit: 'contain' }}
+      draggable={false}
+    />
   );
 }
 
@@ -1798,10 +1792,8 @@ function ChatScreen({ profile, messages, addMessage, clearMessages, personality 
       <div className="px-5 pt-6 pb-3 flex items-center gap-3"
         style={{ backgroundColor: PALETTE.cream, borderBottom: `1px solid ${PALETTE.mist}` }}
       >
-        <div className="w-11 h-11 rounded-full flex items-center justify-center anim-float"
-          style={{ backgroundColor: PALETTE.sageDeep }}
-        >
-          <LogoMark size={36} />
+        <div className="anim-float flex-shrink-0">
+          <LogoMark size={44} />
         </div>
         <div className="flex-1">
           <div className="font-display font-bold" style={{ color: PALETTE.sageDeep }}>{persona.label}</div>
