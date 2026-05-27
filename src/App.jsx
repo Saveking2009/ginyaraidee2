@@ -529,392 +529,6 @@ function Onboarding({ onDone }) {
   );
 }
 
-function AllergySection({ label, icon, items, setItems, input, se@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(135, 168, 120, 0.4); }
-  50% { box-shadow: 0 0 0 14px rgba(135, 168, 120, 0); }
-}
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-@keyframes spinSlow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.anim-fadeUp { animation: fadeUp 0.5s ease-out both; }
-.anim-fadeIn { animation: fadeIn 0.4s ease-out both; }
-.anim-slideUp { animation: slideUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
-.anim-float { animation: float 4s ease-in-out infinite; }
-.anim-pulseGlow { animation: pulseGlow 2.2s ease-in-out infinite; }
-.anim-spin-slow { animation: spinSlow 8s linear infinite; }
-
-.delay-1 { animation-delay: 60ms; }
-.delay-2 { animation-delay: 120ms; }
-.delay-3 { animation-delay: 180ms; }
-.delay-4 { animation-delay: 240ms; }
-.delay-5 { animation-delay: 300ms; }
-.delay-6 { animation-delay: 360ms; }
-
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-.shimmer-bg {
-  background: linear-gradient(90deg, #F0E7D2 0%, #F7F1E6 50%, #F0E7D2 100%);
-  background-size: 200% 100%;
-  animation: shimmer 1.6s linear infinite;
-}
-
-.smooth-tap { transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease; }
-.smooth-tap:active { transform: scale(0.97); }
-
-.organic-shadow { box-shadow: 0 1px 2px rgba(46, 68, 41, 0.04), 0 8px 24px -8px rgba(46, 68, 41, 0.10); }
-.deep-shadow { box-shadow: 0 4px 12px rgba(46, 68, 41, 0.08), 0 16px 40px -12px rgba(46, 68, 41, 0.18); }
-
-.grain-bg {
-  background-image:
-    radial-gradient(at 20% 10%, rgba(135, 168, 120, 0.08) 0px, transparent 50%),
-    radial-gradient(at 80% 90%, rgba(217, 104, 74, 0.06) 0px, transparent 50%),
-    radial-gradient(at 50% 50%, rgba(201, 163, 107, 0.05) 0px, transparent 50%);
-}
-
-.thai-deco {
-  background-image:
-    radial-gradient(circle at 0% 0%, transparent 28%, rgba(201, 163, 107, 0.18) 29%, rgba(201, 163, 107, 0.18) 30%, transparent 31%),
-    radial-gradient(circle at 100% 100%, transparent 28%, rgba(135, 168, 120, 0.18) 29%, rgba(135, 168, 120, 0.18) 30%, transparent 31%);
-  background-size: 40px 40px;
-}
-
-input, textarea, button, select { font-family: inherit; }
-input:focus, textarea:focus, select:focus { outline: none; }
-
-.chip-input:focus-within { border-color: ${PALETTE.sage}; box-shadow: 0 0 0 4px rgba(135, 168, 120, 0.15); }
-
-.text-tiny { font-size: 10px; line-height: 14px; }
-.chat-screen-h { height: calc(100vh - 96px); min-height: 480px; }
-.chip-input-field { min-width: 120px; }
-.max-w-80 { max-width: 80%; }
-.flex-2 { flex: 2 1 0%; }
-`;
-
-/* ============================================================
-   Helpers
-   ============================================================ */
-
-function calcBMI(w, h) {
-  if (!w || !h) return null;
-  const m = h / 100;
-  return +(w / (m * m)).toFixed(1);
-}
-function bmiCategory(bmi) {
-  if (!bmi) return { label: '-', tone: PALETTE.muted };
-  if (bmi < 18.5) return { label: 'ผอม', tone: '#6BA4D9' };
-  if (bmi < 23) return { label: 'สมส่วน', tone: PALETTE.sage };
-  if (bmi < 25) return { label: 'ท้วม', tone: PALETTE.gold };
-  if (bmi < 30) return { label: 'น้ำหนักเกิน', tone: PALETTE.coral };
-  return { label: 'อ้วน', tone: '#B8453A' };
-}
-function calcBMR({ gender, weight, height, age }) {
-  if (!weight || !height || !age) return null;
-  if (gender === 'female') return Math.round(10 * weight + 6.25 * height - 5 * age - 161);
-  return Math.round(10 * weight + 6.25 * height - 5 * age + 5);
-}
-function calcTDEE(bmr, activity = 1.4) {
-  if (!bmr) return null;
-  return Math.round(bmr * activity);
-}
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result.split(',')[1]);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
-function fileToDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
-function todayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-function timeNow() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-/* ============================================================
-   Brand Logo (custom SVG mark)
-   ============================================================ */
-
-function LogoMark({ size = 44 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-      <defs>
-        <linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={PALETTE.sage} />
-          <stop offset="100%" stopColor={PALETTE.sageDeep} />
-        </linearGradient>
-      </defs>
-      <circle cx="32" cy="32" r="30" fill="url(#lg1)" />
-      <path d="M22 26 Q32 14 42 26 L42 40 Q32 50 22 40 Z" fill={PALETTE.cream} opacity="0.95" />
-      <circle cx="27" cy="32" r="2.2" fill={PALETTE.sageDeep} />
-      <circle cx="37" cy="32" r="2.2" fill={PALETTE.sageDeep} />
-      <path d="M27 38 Q32 41 37 38" stroke={PALETTE.sageDeep} strokeWidth="1.8" strokeLinecap="round" fill="none" />
-      <circle cx="48" cy="18" r="3" fill={PALETTE.coral} />
-    </svg>
-  );
-}
-
-/* ============================================================
-   Onboarding
-   ============================================================ */
-
-function Onboarding({ onDone }) {
-  const [step, setStep] = useState(0);
-  const [name, setName] = useState('');
-  const [age, setAge] = useState('');
-  const [gender, setGender] = useState('female');
-  const [height, setHeight] = useState('');
-  const [weight, setWeight] = useState('');
-  const [foodAllergy, setFoodAllergy] = useState([]);
-  const [drugAllergy, setDrugAllergy] = useState([]);
-  const [fInput, setFInput] = useState('');
-  const [dInput, setDInput] = useState('');
-
-  const nextDisabled = () => {
-    if (step === 1) return !name.trim();
-    if (step === 2) return !age || !height || !weight;
-    return false;
-  };
-
-  const submit = () => {
-    onDone({
-      name: name.trim() || 'พี่',
-      age: +age,
-      gender,
-      height: +height,
-      weight: +weight,
-      foodAllergy,
-      drugAllergy,
-      createdAt: Date.now(),
-    });
-  };
-
-  return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: PALETTE.cream }}>
-      <div className="grain-bg absolute inset-0 pointer-events-none" />
-
-      {/* progress */}
-      <div className="px-6 pt-6 flex items-center gap-2 relative z-10">
-        {[0, 1, 2, 3].map((s) => (
-          <div
-            key={s}
-            className="h-1.5 flex-1 rounded-full transition-all duration-500"
-            style={{ backgroundColor: s <= step ? PALETTE.sage : PALETTE.mist }}
-          />
-        ))}
-      </div>
-
-      <div className="flex-1 flex items-center justify-center px-6 py-8 relative z-10">
-        <div className="w-full max-w-md">
-
-          {step === 0 && (
-            <div className="text-center anim-slideUp">
-              <div className="anim-float inline-block mb-6">
-                <LogoMark size={96} />
-              </div>
-              <h1 className="font-display text-5xl font-bold mb-3" style={{ color: PALETTE.sageDeep }}>
-                GINYARAIDEE
-              </h1>
-              <div className="font-accent text-lg mb-1" style={{ color: PALETTE.gold }}>
-                กินยาไรดี
-              </div>
-              <p className="font-body text-base mb-10" style={{ color: PALETTE.muted }}>
-                เพื่อนสุขภาพใจดี<br />ที่อยู่ข้างพี่ทุกวัน
-              </p>
-              <button
-                onClick={() => setStep(1)}
-                className="smooth-tap font-display font-semibold w-full py-4 rounded-2xl text-white text-base deep-shadow"
-                style={{ backgroundColor: PALETTE.sageDark }}
-              >
-                เริ่มกันเลย
-              </button>
-              <p className="font-body text-xs mt-6 leading-relaxed" style={{ color: PALETTE.muted }}>
-                * แอปนี้ให้คำแนะนำเบื้องต้นเท่านั้น<br />ไม่ทดแทนการวินิจฉัยโดยแพทย์
-              </p>
-            </div>
-          )}
-
-          {step === 1 && (
-            <div className="anim-slideUp">
-              <div className="font-accent text-sm mb-2" style={{ color: PALETTE.gold }}>STEP 01</div>
-              <h2 className="font-display text-3xl font-bold mb-2" style={{ color: PALETTE.sageDeep }}>
-                ขอเรียกพี่ว่าอะไรดี?
-              </h2>
-              <p className="font-body text-sm mb-8" style={{ color: PALETTE.muted }}>
-                หนูอยากเรียกชื่อพี่ให้ถูกต้องเลยค่ะ
-              </p>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="ชื่อเล่นก็ได้นะ"
-                className="font-body w-full px-5 py-4 rounded-2xl text-lg organic-shadow"
-                style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
-                autoFocus
-              />
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="anim-slideUp">
-              <div className="font-accent text-sm mb-2" style={{ color: PALETTE.gold }}>STEP 02</div>
-              <h2 className="font-display text-3xl font-bold mb-2" style={{ color: PALETTE.sageDeep }}>
-                ขอข้อมูลพื้นฐาน
-              </h2>
-              <p className="font-body text-sm mb-6" style={{ color: PALETTE.muted }}>
-                เพื่อคำนวณแคลและคำแนะนำที่เหมาะกับพี่
-              </p>
-
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <button
-                  onClick={() => setGender('female')}
-                  className={`smooth-tap font-display font-medium py-4 rounded-2xl border-2`}
-                  style={{
-                    backgroundColor: gender === 'female' ? PALETTE.sageDark : PALETTE.paper,
-                    color: gender === 'female' ? '#fff' : PALETTE.forest,
-                    borderColor: gender === 'female' ? PALETTE.sageDark : PALETTE.mist,
-                  }}
-                >
-                  หญิง
-                </button>
-                <button
-                  onClick={() => setGender('male')}
-                  className={`smooth-tap font-display font-medium py-4 rounded-2xl border-2`}
-                  style={{
-                    backgroundColor: gender === 'male' ? PALETTE.sageDark : PALETTE.paper,
-                    color: gender === 'male' ? '#fff' : PALETTE.forest,
-                    borderColor: gender === 'male' ? PALETTE.sageDark : PALETTE.mist,
-                  }}
-                >
-                  ชาย
-                </button>
-              </div>
-
-              <input
-                value={age}
-                onChange={(e) => setAge(e.target.value.replace(/\D/g, ''))}
-                placeholder="อายุ (ปี)"
-                inputMode="numeric"
-                className="font-body w-full px-5 py-4 rounded-2xl text-base mb-3"
-                style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  value={height}
-                  onChange={(e) => setHeight(e.target.value.replace(/[^\d.]/g, ''))}
-                  placeholder="สูง (ซม.)"
-                  inputMode="decimal"
-                  className="font-body w-full px-5 py-4 rounded-2xl text-base"
-                  style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
-                />
-                <input
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value.replace(/[^\d.]/g, ''))}
-                  placeholder="หนัก (กก.)"
-                  inputMode="decimal"
-                  className="font-body w-full px-5 py-4 rounded-2xl text-base"
-                  style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="anim-slideUp">
-              <div className="font-accent text-sm mb-2" style={{ color: PALETTE.gold }}>STEP 03</div>
-              <h2 className="font-display text-3xl font-bold mb-2" style={{ color: PALETTE.sageDeep }}>
-                สิ่งที่พี่แพ้
-              </h2>
-              <p className="font-body text-sm mb-6" style={{ color: PALETTE.muted }}>
-                สำคัญมาก หนูจะได้เตือนพี่ทันที (ถ้าไม่มี ข้ามได้เลย)
-              </p>
-
-              <AllergySection
-                label="แพ้อาหาร"
-                icon={<Apple size={16} />}
-                items={foodAllergy}
-                setItems={setFoodAllergy}
-                input={fInput}
-                setInput={setFInput}
-                placeholder="เช่น กุ้ง, นม, ถั่ว..."
-              />
-              <div className="h-4" />
-              <AllergySection
-                label="แพ้ยา"
-                icon={<Pill size={16} />}
-                items={drugAllergy}
-                setItems={setDrugAllergy}
-                input={dInput}
-                setInput={setDInput}
-                placeholder="เช่น พาราเซตามอล, ยาแก้ปวด..."
-              />
-            </div>
-          )}
-
-        </div>
-      </div>
-
-      {/* nav buttons */}
-      <div className="px-6 pb-8 relative z-10">
-        <div className="max-w-md mx-auto flex items-center gap-3">
-          {step > 0 && step < 4 && (
-            <button
-              onClick={() => setStep(s => Math.max(0, s - 1))}
-              className="smooth-tap font-display font-medium px-5 py-4 rounded-2xl"
-              style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
-            >
-              <ArrowLeft size={20} />
-            </button>
-          )}
-          {step > 0 && (
-            <button
-              onClick={() => step === 3 ? submit() : setStep(s => s + 1)}
-              disabled={nextDisabled()}
-              className="smooth-tap font-display font-semibold flex-1 py-4 rounded-2xl text-white text-base flex items-center justify-center gap-2 deep-shadow disabled:opacity-40"
-              style={{ backgroundColor: PALETTE.sageDark }}
-            >
-              {step === 3 ? 'เริ่มใช้แอป' : 'ต่อไป'}
-              <ChevronRight size={20} />
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AllergySection({ label, icon, items, setItems, input, setInput, placeholder }) {
   const add = () => {
     const v = input.trim();
@@ -1738,11 +1352,13 @@ function MedicineCabinet({ medicines, addMedicine, removeMedicine, onModalChange
    Chat — น้องไกด์
    ============================================================ */
 
-function ChatScreen({ profile, messages, addMessage, clearMessages }) {
+function ChatScreen({ profile, messages, addMessage, clearMessages, personality }) {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const scrollRef = useRef(null);
+
+  const persona = resolvePersonality(personality, profile.age);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -1767,17 +1383,18 @@ function ChatScreen({ profile, messages, addMessage, clearMessages }) {
 
     try {
       const bmi = calcBMI(profile.weight, profile.height);
-      const system = `คุณคือ "น้องไกด์" — น้องสาวใจดี อบอุ่น เป็นมิตร ในแอป GINYARAIDEE
-สรรพนาม: ใช้ "หนู" เรียกตัวเอง เรียกผู้ใช้ว่า "พี่"
-สไตล์: น่ารัก เป็นกันเอง อบอุ่น ใช้ emoji เล็กน้อย ห้ามใช้ markdown หรือ ** ตอบสั้นๆ กระชับ 2-4 ประโยค
+      const system = `${persona.prompt}
 
-หน้าที่:
+(ในแอป GINYARAIDEE — แอปสุขภาพที่ให้คำแนะนำเบื้องต้น)
+
+หน้าที่หลัก:
 1. ให้คำแนะนำสุขภาพเบื้องต้น (ไม่วินิจฉัย ไม่จ่ายยา)
 2. ถ้ามีอาการรุนแรง เช่น เจ็บหน้าอกหนัก หายใจไม่ออก ปวดหัวรุนแรงเฉียบพลัน อาเจียนเป็นเลือด อ่อนแรงครึ่งซีก ชัก หมดสติ หรือคิดทำร้ายตัวเอง → ต้องเตือนให้ไปพบแพทย์/โทร 1669 ทันทีอย่างจริงจัง
-3. ถ้าอาการเล็กน้อย → ให้คำแนะนำดูแลเบื้องต้นพร้อมบอก "ถ้าไม่ดีขึ้นใน 2-3 วัน ลองไปหาหมอนะคะพี่"
-4. คำนึงถึงข้อมูลผู้ใช้และสิ่งที่แพ้เสมอ — ถ้าพี่ถามเรื่องยา ให้เช็คก่อนว่ามีในรายการแพ้ไหม
+3. ถ้าอาการเล็กน้อย → ให้คำแนะนำดูแลเบื้องต้นพร้อมบอก "ถ้าไม่ดีขึ้นใน 2-3 วัน ไปหาหมอนะ"
+4. คำนึงถึงข้อมูลผู้ใช้และสิ่งที่แพ้เสมอ — ถ้าถามเรื่องยา ให้เช็คก่อนว่ามีในรายการแพ้ไหม
+5. ห้ามใช้ markdown หรือ ** ตอบสั้นๆ กระชับ 2-4 ประโยค
 
-ข้อมูลพี่ผู้ใช้:
+ข้อมูลผู้ใช้:
 - ชื่อ: ${profile.name}
 - เพศ: ${profile.gender === 'female' ? 'หญิง' : 'ชาย'}, อายุ ${profile.age} ปี
 - BMI: ${bmi}
@@ -1820,10 +1437,10 @@ function ChatScreen({ profile, messages, addMessage, clearMessages }) {
           <LogoMark size={36} />
         </div>
         <div className="flex-1">
-          <div className="font-display font-bold" style={{ color: PALETTE.sageDeep }}>น้องไกด์</div>
+          <div className="font-display font-bold" style={{ color: PALETTE.sageDeep }}>{persona.label}</div>
           <div className="font-body text-xs flex items-center gap-1.5" style={{ color: PALETTE.sage }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: PALETTE.sage }} />
-            พร้อมคุยตลอด
+            {persona.sub} · พร้อมคุย
           </div>
         </div>
         <button className="smooth-tap w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40"
@@ -1853,12 +1470,13 @@ function ChatScreen({ profile, messages, addMessage, clearMessages }) {
             <div className="anim-float inline-block mb-4">
               <LogoMark size={72} />
             </div>
+            <div className="text-3xl mb-2">{persona.icon}</div>
             <div className="font-display text-xl font-bold mb-2" style={{ color: PALETTE.sageDeep }}>
-              สวัสดีค่ะ พี่{profile.name}
+              สวัสดี {profile.name}
             </div>
             <p className="font-body text-sm leading-relaxed mb-6 max-w-xs mx-auto" style={{ color: PALETTE.muted }}>
-              หนูคือน้องไกด์ ที่ปรึกษาสุขภาพของพี่<br />
-              ถามอะไรก็ได้นะคะ หนูจะช่วยให้คำแนะนำ
+              ฉันคือ <strong style={{ color: PALETTE.sageDark }}>{persona.label}</strong><br />
+              {persona.desc}
             </p>
             <div className="space-y-2 max-w-xs mx-auto">
               {['ปวดหัวมา 2 วัน ทำยังไงดี', 'อาหารแบบไหนช่วยให้นอนหลับ', 'ออกกำลังกายแบบไหนเหมาะกับมือใหม่'].map((s, i) => (
@@ -2235,7 +1853,7 @@ ${answersText}
    Profile / Privacy
    ============================================================ */
 
-function Profile({ profile, privacy, setPrivacy, setProfile, reset, onModalChange }) {
+function Profile({ profile, privacy, setPrivacy, setProfile, reset, onModalChange, personality, setPersonality }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(profile);
   const bmi = calcBMI(profile.weight, profile.height);
@@ -2388,6 +2006,53 @@ function Profile({ profile, privacy, setPrivacy, setProfile, reset, onModalChang
                 onChange={() => setPrivacy({ ...privacy, [row.key]: !privacy[row.key] })} />
             </div>
           ))}
+        </div>
+
+        {/* AI Personality picker */}
+        <div className="rounded-2xl p-4 mb-4 organic-shadow anim-slideUp delay-2"
+          style={{ backgroundColor: PALETTE.paper }}
+        >
+          <div className="font-display font-semibold mb-1 flex items-center gap-2"
+            style={{ color: PALETTE.sageDeep }}
+          >
+            <Sparkles size={16} color={PALETTE.gold} /> บุคลิก AI
+          </div>
+          <p className="font-body text-xs mb-3" style={{ color: PALETTE.muted }}>
+            เลือกบุคลิกที่ถนัด — โหมดอัตโนมัติจะเลือกให้ตามอายุของคุณ
+          </p>
+          <div className="space-y-2">
+            {Object.values(PERSONALITIES).map((p) => {
+              const isSelected = (personality || 'auto') === p.id;
+              const showResolved = p.id === 'auto' && isSelected;
+              const resolved = showResolved ? resolvePersonality('auto', profile.age) : null;
+              return (
+                <button key={p.id}
+                  onClick={() => setPersonality(p.id)}
+                  className="smooth-tap w-full text-left rounded-xl p-3 flex items-center gap-3"
+                  style={{
+                    backgroundColor: isSelected ? PALETTE.sageDeep : PALETTE.shell,
+                    color: isSelected ? 'white' : PALETTE.forest,
+                  }}
+                >
+                  <div className="text-2xl flex-shrink-0">{p.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-display font-semibold text-sm flex items-center gap-1.5">
+                      {p.label}
+                      {showResolved && resolved && (
+                        <span className="font-body text-tiny px-1.5 py-0.5 rounded-md"
+                          style={{ backgroundColor: PALETTE.gold, color: PALETTE.sageDeep }}
+                        >
+                          → {resolved.label}
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-body text-xs opacity-80 mt-0.5">{p.sub} · {p.desc}</div>
+                  </div>
+                  {isSelected && <Check size={18} className="flex-shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Edit profile */}
@@ -2556,6 +2221,7 @@ export default function App() {
   const [foodLog, _setFoodLog] = useState(() => load('gyn_foodlog', []));
   const [chatMessages, _setChat] = useState(() => load('gyn_chat', []));
   const [medicines, _setMeds] = useState(() => load('gyn_meds', []));
+  const [personality, _setPersonality] = useState(() => load('gyn_persona', 'auto'));
   const [modalOpen, setModalOpen] = useState(false);
   const [privacy, _setPrivacy] = useState(() => load('gyn_privacy', {
     showHeight: true, showWeight: true, showAge: true, showAllergies: false,
@@ -2569,6 +2235,7 @@ export default function App() {
   };
   const setMedicines = (v) => { _setMeds(v); save('gyn_meds', v); };
   const setPrivacy = (v) => { _setPrivacy(v); save('gyn_privacy', v); };
+  const setPersonality = (v) => { _setPersonality(v); save('gyn_persona', v); };
 
   useEffect(() => {
     document.body.style.backgroundColor = PALETTE.cream;
@@ -2587,9 +2254,10 @@ export default function App() {
   }
 
   const reset = () => {
-    ['gyn_profile','gyn_foodlog','gyn_chat','gyn_meds','gyn_privacy'].forEach(k => localStorage.removeItem(k));
+    ['gyn_profile','gyn_foodlog','gyn_chat','gyn_meds','gyn_privacy','gyn_persona'].forEach(k => localStorage.removeItem(k));
     _setProfile(null); _setFoodLog([]); _setChat([]); _setMeds([]);
     _setPrivacy({ showHeight: true, showWeight: true, showAge: true, showAllergies: false });
+    _setPersonality('auto');
     setScreen('home');
   };
 
@@ -2611,6 +2279,7 @@ export default function App() {
             <ChatScreen profile={profile} messages={chatMessages}
               addMessage={(m) => setChatMessages(p => [...p, m])}
               clearMessages={() => setChatMessages([])}
+              personality={personality}
             />
           )}
           {screen === 'medicine' && (
@@ -2624,6 +2293,7 @@ export default function App() {
           {screen === 'profile' && (
             <Profile profile={profile} privacy={privacy} setPrivacy={setPrivacy}
               setProfile={setProfile} reset={reset} onModalChange={setModalOpen}
+              personality={personality} setPersonality={setPersonality}
             />
           )}
         </div>
