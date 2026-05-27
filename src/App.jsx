@@ -5,7 +5,9 @@ import {
   Sparkles, AlertCircle, Loader2, Eye, EyeOff, Trash2, ArrowLeft,
   Flame, Apple, Wheat, Droplet, ChevronLeft, Check, Image as ImageIcon,
   Leaf, AlertTriangle, Phone, RotateCcw, Pencil, BarChart3, TrendingUp,
-  TrendingDown, Calendar, ScanLine
+  TrendingDown, Calendar, ScanLine, Newspaper, GlassWater, Moon, Dumbbell,
+  Stethoscope, Bell, Printer, MoreHorizontal, Minus, FileText, Zap,
+  ExternalLink, Clock
 } from 'lucide-react';
 
 /* ============================================================
@@ -168,6 +170,33 @@ function todayKey() {
 function timeNow() {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+function waterTargetMl(weight) {
+  if (!weight) return 2000;
+  return Math.round(weight * 33);
+}
+const EXERCISE_TYPES = [
+  { id: 'walk', label: 'เดิน', met: 3.5, icon: '🚶' },
+  { id: 'run', label: 'วิ่ง', met: 8, icon: '🏃' },
+  { id: 'bike', label: 'ปั่นจักรยาน', met: 6, icon: '🚴' },
+  { id: 'swim', label: 'ว่ายน้ำ', met: 7, icon: '🏊' },
+  { id: 'gym', label: 'ยิม / weight', met: 5, icon: '💪' },
+  { id: 'yoga', label: 'โยคะ', met: 3, icon: '🧘' },
+  { id: 'sport', label: 'กีฬาทั่วไป', met: 5.5, icon: '⚽' },
+  { id: 'house', label: 'งานบ้าน', met: 3, icon: '🏠' },
+];
+function exerciseCal({ met, weight, minutes }) {
+  return Math.round(met * (weight || 60) * (minutes / 60));
+}
+function lastNDaysKeys(n) {
+  const keys = [];
+  const now = new Date();
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+  }
+  return keys;
 }
 
 /* ============================================================
@@ -662,21 +691,15 @@ function Dashboard({ profile, foodLog, goto }) {
 
       {/* quick actions */}
       <div className="font-display font-semibold text-sm mb-3 anim-slideUp delay-4" style={{ color: PALETTE.sageDeep }}>
-        เลือกใช้ได้เลย
+        ทางลัด
       </div>
       <div className="grid grid-cols-2 gap-3 mb-4">
         <ActionCard delay="delay-4" onClick={() => goto('food')}
           icon={<UtensilsCrossed size={22} />} title="ถ่ายอาหาร" subtitle="ให้ AI คำนวณแคล"
           bg={PALETTE.paper} accent={PALETTE.sage} />
-        <ActionCard delay="delay-5" onClick={() => goto('chat')}
-          icon={<MessageCircle size={22} />} title="คุยกับน้องไกด์" subtitle="ปรึกษาสุขภาพ"
+        <ActionCard delay="delay-5" onClick={() => goto('health')}
+          icon={<Activity size={22} />} title="สุขภาพ" subtitle="น้ำ · นอน · ออกกำลังกาย"
           bg={PALETTE.paper} accent={PALETTE.coral} />
-        <ActionCard delay="delay-5" onClick={() => goto('medicine')}
-          icon={<Pill size={22} />} title="ตู้ยา" subtitle="ยาแต่ละตัวคืออะไร"
-          bg={PALETTE.paper} accent={PALETTE.gold} />
-        <ActionCard delay="delay-6" onClick={() => goto('mental')}
-          icon={<Brain size={22} />} title="เช็คใจ" subtitle="สุขภาพจิตเบื้องต้น"
-          bg={PALETTE.paper} accent={PALETTE.sageDark} />
       </div>
 
       {/* today's food */}
@@ -712,6 +735,9 @@ function Dashboard({ profile, foodLog, goto }) {
           </div>
         </div>
       )}
+
+      {/* Health news */}
+      <HealthNewsCard profile={profile} />
 
       {/* Weekly summary card */}
       {foodLog.length > 0 && (
@@ -2520,42 +2546,1237 @@ function ProfileStat({ label, value, unit, hidden }) {
 }
 
 /* ============================================================
-   Bottom Nav
+   Health Hub — น้ำ / นอน / ออกกำลังกาย / ความดัน
    ============================================================ */
 
-function BottomNav({ current, onNav }) {
+function HealthHub({ profile, water, addWater, removeWater, sleep, addSleep, removeSleep,
+  exercises, addExercise, removeExercise, vitals, addVital, removeVital }) {
+  const today = todayKey();
+  const target = waterTargetMl(profile.weight);
+  const todayWater = water.filter(w => w.day === today).reduce((s, w) => s + (w.ml || 0), 0);
+  const waterPct = Math.min(1, todayWater / target);
+
+  const todayExercise = exercises.filter(e => e.day === today);
+  const burned = todayExercise.reduce((s, e) => s + (e.calories || 0), 0);
+
+  const lastSleep = sleep[sleep.length - 1];
+  const lastVital = vitals[vitals.length - 1];
+
+  const [tab, setTab] = useState('water');
+
+  return (
+    <div className="pb-32 anim-fadeIn">
+      <div className="px-5 pt-6">
+        <div className="font-accent text-sm mb-1" style={{ color: PALETTE.gold }}>HEALTH HUB</div>
+        <h1 className="font-display text-3xl font-bold mb-5" style={{ color: PALETTE.sageDeep }}>
+          สุขภาพประจำวัน
+        </h1>
+
+        {/* Top summary grid */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <button onClick={() => setTab('water')}
+            className="smooth-tap text-left rounded-2xl p-4 organic-shadow anim-slideUp"
+            style={{ backgroundColor: tab === 'water' ? PALETTE.sageDeep : PALETTE.paper, color: tab === 'water' ? 'white' : PALETTE.forest }}
+          >
+            <div className="flex items-center gap-1.5 mb-2" style={{ color: tab === 'water' ? PALETTE.gold : PALETTE.sage }}>
+              <GlassWater size={16} /><span className="font-accent text-xs">น้ำดื่ม</span>
+            </div>
+            <div className="font-display text-xl font-bold leading-none">
+              {todayWater}<span className="text-xs font-normal opacity-60"> / {target} ml</span>
+            </div>
+            <div className="mt-2 h-1.5 rounded-full" style={{ backgroundColor: tab === 'water' ? 'rgba(255,255,255,0.15)' : PALETTE.mist }}>
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${waterPct * 100}%`, backgroundColor: tab === 'water' ? PALETTE.gold : '#6BA4D9' }} />
+            </div>
+          </button>
+
+          <button onClick={() => setTab('exercise')}
+            className="smooth-tap text-left rounded-2xl p-4 organic-shadow anim-slideUp delay-1"
+            style={{ backgroundColor: tab === 'exercise' ? PALETTE.sageDeep : PALETTE.paper, color: tab === 'exercise' ? 'white' : PALETTE.forest }}
+          >
+            <div className="flex items-center gap-1.5 mb-2" style={{ color: tab === 'exercise' ? PALETTE.gold : PALETTE.coral }}>
+              <Dumbbell size={16} /><span className="font-accent text-xs">ออกกำลัง</span>
+            </div>
+            <div className="font-display text-xl font-bold leading-none">
+              {burned}<span className="text-xs font-normal opacity-60"> kcal</span>
+            </div>
+            <div className="font-body text-xs opacity-70 mt-2">{todayExercise.length} ครั้งวันนี้</div>
+          </button>
+
+          <button onClick={() => setTab('sleep')}
+            className="smooth-tap text-left rounded-2xl p-4 organic-shadow anim-slideUp delay-2"
+            style={{ backgroundColor: tab === 'sleep' ? PALETTE.sageDeep : PALETTE.paper, color: tab === 'sleep' ? 'white' : PALETTE.forest }}
+          >
+            <div className="flex items-center gap-1.5 mb-2" style={{ color: tab === 'sleep' ? PALETTE.gold : '#6F58B8' }}>
+              <Moon size={16} /><span className="font-accent text-xs">การนอน</span>
+            </div>
+            <div className="font-display text-xl font-bold leading-none">
+              {lastSleep ? `${lastSleep.hours}` : '-'}<span className="text-xs font-normal opacity-60"> ชม.</span>
+            </div>
+            <div className="font-body text-xs opacity-70 mt-2">
+              {lastSleep ? '★'.repeat(lastSleep.quality || 0) : 'ยังไม่บันทึก'}
+            </div>
+          </button>
+
+          <button onClick={() => setTab('vitals')}
+            className="smooth-tap text-left rounded-2xl p-4 organic-shadow anim-slideUp delay-3"
+            style={{ backgroundColor: tab === 'vitals' ? PALETTE.sageDeep : PALETTE.paper, color: tab === 'vitals' ? 'white' : PALETTE.forest }}
+          >
+            <div className="flex items-center gap-1.5 mb-2" style={{ color: tab === 'vitals' ? PALETTE.gold : PALETTE.coral }}>
+              <Stethoscope size={16} /><span className="font-accent text-xs">สัญญาณชีพ</span>
+            </div>
+            <div className="font-display text-xl font-bold leading-none">
+              {lastVital ? (lastVital.kind === 'bp' ? `${lastVital.sbp}/${lastVital.dbp}` : `${lastVital.sugar}`) : '-'}
+            </div>
+            <div className="font-body text-xs opacity-70 mt-2">
+              {lastVital ? (lastVital.kind === 'bp' ? 'ความดัน' : 'น้ำตาล mg/dL') : 'ยังไม่บันทึก'}
+            </div>
+          </button>
+        </div>
+
+        {/* Tab content */}
+        <div className="anim-fadeIn" key={tab}>
+          {tab === 'water' && <WaterTab profile={profile} water={water} addWater={addWater} removeWater={removeWater} target={target} todayWater={todayWater} />}
+          {tab === 'exercise' && <ExerciseTab profile={profile} exercises={exercises} addExercise={addExercise} removeExercise={removeExercise} />}
+          {tab === 'sleep' && <SleepTab sleep={sleep} addSleep={addSleep} removeSleep={removeSleep} />}
+          {tab === 'vitals' && <VitalsTab vitals={vitals} addVital={addVital} removeVital={removeVital} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WaterTab({ profile, water, addWater, removeWater, target, todayWater }) {
+  const today = todayKey();
+  const todayEntries = water.filter(w => w.day === today);
+  const pct = Math.min(1, todayWater / target);
+
+  const quickAdd = (ml) => addWater({ id: 'w' + Date.now(), day: today, time: timeNow(), ml });
+
+  return (
+    <div>
+      <div className="rounded-3xl p-6 mb-4 deep-shadow relative overflow-hidden"
+        style={{ backgroundColor: PALETTE.paper }}
+      >
+        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full opacity-10"
+          style={{ backgroundColor: '#6BA4D9' }} />
+
+        <div className="relative flex items-center gap-4 mb-5">
+          <div className="relative w-24 h-32">
+            {/* Glass shape */}
+            <svg width="96" height="128" viewBox="0 0 96 128">
+              <defs>
+                <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8BC4E8" />
+                  <stop offset="100%" stopColor="#5B9BD9" />
+                </linearGradient>
+                <clipPath id="glass">
+                  <path d="M14 8 L82 8 L75 118 Q75 122 70 122 L26 122 Q21 122 21 118 Z" />
+                </clipPath>
+              </defs>
+              <path d="M14 8 L82 8 L75 118 Q75 122 70 122 L26 122 Q21 122 21 118 Z"
+                fill={PALETTE.shell} stroke={PALETTE.mist} strokeWidth="2" />
+              <rect x="0" y={128 - (pct * 110)} width="96" height={pct * 110}
+                fill="url(#water)" clipPath="url(#glass)"
+                style={{ transition: 'y 0.7s cubic-bezier(0.22, 1, 0.36, 1), height 0.7s cubic-bezier(0.22, 1, 0.36, 1)' }}
+              />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <div className="font-display text-3xl font-bold leading-none" style={{ color: PALETTE.sageDeep }}>
+              {todayWater}<span className="text-base font-normal" style={{ color: PALETTE.muted }}> ml</span>
+            </div>
+            <div className="font-body text-sm" style={{ color: PALETTE.muted }}>เป้าหมาย {target} ml</div>
+            <div className="font-accent text-xs mt-2 px-2 py-1 inline-block rounded-md"
+              style={{ backgroundColor: pct >= 1 ? PALETTE.sage + '22' : PALETTE.shell, color: pct >= 1 ? PALETTE.sageDark : PALETTE.muted }}
+            >
+              {pct >= 1 ? '✨ ครบเป้าแล้ว!' : `เหลือ ${target - todayWater} ml`}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick add buttons */}
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { ml: 100, label: '100' },
+            { ml: 250, label: 'แก้ว' },
+            { ml: 500, label: 'ขวด' },
+            { ml: 750, label: '750' },
+          ].map((b) => (
+            <button key={b.ml} onClick={() => quickAdd(b.ml)}
+              className="smooth-tap rounded-xl py-3 flex flex-col items-center"
+              style={{ backgroundColor: '#6BA4D9', color: 'white' }}
+            >
+              <GlassWater size={16} />
+              <span className="font-accent text-xs mt-1">+{b.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {todayEntries.length > 0 && (
+        <>
+          <div className="font-display font-semibold text-sm mb-2" style={{ color: PALETTE.sageDeep }}>
+            วันนี้ดื่มไปแล้ว
+          </div>
+          <div className="space-y-2">
+            {todayEntries.slice().reverse().map(w => (
+              <div key={w.id} className="rounded-xl p-3 flex items-center gap-3 organic-shadow"
+                style={{ backgroundColor: PALETTE.paper }}
+              >
+                <GlassWater size={18} color="#6BA4D9" />
+                <div className="flex-1">
+                  <div className="font-body text-sm font-medium" style={{ color: PALETTE.forest }}>{w.ml} ml</div>
+                  <div className="font-body text-xs" style={{ color: PALETTE.muted }}>{w.time}</div>
+                </div>
+                <button onClick={() => removeWater(w.id)} style={{ color: PALETTE.muted }}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ExerciseTab({ profile, exercises, addExercise, removeExercise }) {
+  const [adding, setAdding] = useState(false);
+  const [type, setType] = useState(EXERCISE_TYPES[0]);
+  const [minutes, setMinutes] = useState('30');
+  const today = todayKey();
+  const todayEx = exercises.filter(e => e.day === today);
+
+  const save = () => {
+    const mins = parseInt(minutes) || 0;
+    if (mins <= 0) return;
+    const cal = exerciseCal({ met: type.met, weight: profile.weight, minutes: mins });
+    addExercise({
+      id: 'e' + Date.now(), day: today, time: timeNow(),
+      type: type.id, label: type.label, icon: type.icon,
+      minutes: mins, calories: cal,
+    });
+    setMinutes('30'); setAdding(false);
+  };
+
+  return (
+    <div>
+      {!adding ? (
+        <button onClick={() => setAdding(true)}
+          className="smooth-tap w-full rounded-2xl p-4 mb-3 flex items-center gap-3 deep-shadow"
+          style={{ backgroundColor: PALETTE.coral, color: 'white' }}
+        >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+          >
+            <Plus size={20} />
+          </div>
+          <div className="text-left flex-1">
+            <div className="font-display font-semibold">บันทึกออกกำลังกาย</div>
+            <div className="font-body text-xs opacity-80">เลือกประเภทและเวลา</div>
+          </div>
+        </button>
+      ) : (
+        <div className="rounded-2xl p-4 mb-3 anim-slideUp"
+          style={{ backgroundColor: PALETTE.paper }}
+        >
+          <div className="font-display font-semibold mb-3" style={{ color: PALETTE.sageDeep }}>
+            ออกกำลังกายอะไร?
+          </div>
+          <div className="grid grid-cols-4 gap-2 mb-4">
+            {EXERCISE_TYPES.map((t) => (
+              <button key={t.id} onClick={() => setType(t)}
+                className="smooth-tap rounded-xl py-2.5 flex flex-col items-center gap-0.5"
+                style={{
+                  backgroundColor: type.id === t.id ? PALETTE.sageDeep : PALETTE.shell,
+                  color: type.id === t.id ? 'white' : PALETTE.forest,
+                }}
+              >
+                <span className="text-xl">{t.icon}</span>
+                <span className="font-accent text-tiny">{t.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="font-body text-sm mb-2" style={{ color: PALETTE.muted }}>กี่นาที?</div>
+          <div className="flex items-center gap-3 mb-4">
+            <button onClick={() => setMinutes(String(Math.max(5, (parseInt(minutes) || 0) - 5)))}
+              className="smooth-tap w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: PALETTE.shell, color: PALETTE.forest }}
+            >
+              <Minus size={16} />
+            </button>
+            <input value={minutes} onChange={e => setMinutes(e.target.value.replace(/\D/g, ''))}
+              className="flex-1 text-center font-display text-2xl font-bold py-2 rounded-xl"
+              style={{ backgroundColor: PALETTE.shell, color: PALETTE.sageDeep, border: 'none' }}
+              inputMode="numeric"
+            />
+            <button onClick={() => setMinutes(String((parseInt(minutes) || 0) + 5))}
+              className="smooth-tap w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: PALETTE.shell, color: PALETTE.forest }}
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+
+          <div className="rounded-xl p-3 mb-4 text-center" style={{ backgroundColor: PALETTE.shell }}>
+            <div className="font-body text-xs" style={{ color: PALETTE.muted }}>เผาผลาญประมาณ</div>
+            <div className="font-display text-2xl font-bold" style={{ color: PALETTE.coral }}>
+              {exerciseCal({ met: type.met, weight: profile.weight, minutes: parseInt(minutes) || 0 })} kcal
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={() => setAdding(false)}
+              className="smooth-tap flex-1 py-3 rounded-xl font-display font-medium"
+              style={{ backgroundColor: PALETTE.shell, color: PALETTE.forest }}
+            >ยกเลิก</button>
+            <button onClick={save}
+              className="smooth-tap flex-2 py-3 rounded-xl font-display font-semibold text-white"
+              style={{ backgroundColor: PALETTE.coral }}
+            >บันทึก</button>
+          </div>
+        </div>
+      )}
+
+      {todayEx.length > 0 ? (
+        <>
+          <div className="font-display font-semibold text-sm mb-2" style={{ color: PALETTE.sageDeep }}>
+            วันนี้ทำไปแล้ว
+          </div>
+          <div className="space-y-2">
+            {todayEx.slice().reverse().map(e => (
+              <div key={e.id} className="rounded-xl p-3 flex items-center gap-3 organic-shadow"
+                style={{ backgroundColor: PALETTE.paper }}
+              >
+                <div className="text-2xl">{e.icon}</div>
+                <div className="flex-1">
+                  <div className="font-body font-medium text-sm" style={{ color: PALETTE.forest }}>{e.label}</div>
+                  <div className="font-body text-xs" style={{ color: PALETTE.muted }}>
+                    {e.minutes} นาที · {e.time}
+                  </div>
+                </div>
+                <div className="font-display text-sm font-semibold" style={{ color: PALETTE.coral }}>
+                  -{e.calories} kcal
+                </div>
+                <button onClick={() => removeExercise(e.id)} style={{ color: PALETTE.muted }}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        !adding && (
+          <div className="rounded-2xl p-8 text-center" style={{ backgroundColor: PALETTE.paper }}>
+            <Dumbbell size={28} className="mx-auto mb-2" color={PALETTE.mist} />
+            <div className="font-body text-sm" style={{ color: PALETTE.muted }}>
+              ยังไม่ได้ออกกำลังกายวันนี้
+            </div>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+function SleepTab({ sleep, addSleep, removeSleep }) {
+  const [adding, setAdding] = useState(false);
+  const [bedtime, setBedtime] = useState('23:00');
+  const [waketime, setWaketime] = useState('07:00');
+  const [quality, setQuality] = useState(3);
+
+  const calcHours = () => {
+    const [bh, bm] = bedtime.split(':').map(Number);
+    const [wh, wm] = waketime.split(':').map(Number);
+    let mins = (wh * 60 + wm) - (bh * 60 + bm);
+    if (mins < 0) mins += 24 * 60;
+    return +(mins / 60).toFixed(1);
+  };
+
+  const save = () => {
+    addSleep({
+      id: 's' + Date.now(),
+      day: todayKey(),
+      bedtime, waketime,
+      hours: calcHours(),
+      quality,
+    });
+    setAdding(false);
+  };
+
+  return (
+    <div>
+      {!adding ? (
+        <button onClick={() => setAdding(true)}
+          className="smooth-tap w-full rounded-2xl p-4 mb-3 flex items-center gap-3 deep-shadow"
+          style={{ backgroundColor: '#6F58B8', color: 'white' }}
+        >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+          >
+            <Plus size={20} />
+          </div>
+          <div className="text-left flex-1">
+            <div className="font-display font-semibold">บันทึกการนอน</div>
+            <div className="font-body text-xs opacity-80">เวลานอน/ตื่น และคุณภาพ</div>
+          </div>
+        </button>
+      ) : (
+        <div className="rounded-2xl p-5 mb-3 anim-slideUp" style={{ backgroundColor: PALETTE.paper }}>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <div className="font-accent text-xs mb-1" style={{ color: PALETTE.muted }}>เข้านอน</div>
+              <input type="time" value={bedtime} onChange={e => setBedtime(e.target.value)}
+                className="font-display text-lg font-bold w-full px-3 py-2 rounded-xl"
+                style={{ backgroundColor: PALETTE.shell, color: PALETTE.sageDeep, border: 'none' }}
+              />
+            </div>
+            <div>
+              <div className="font-accent text-xs mb-1" style={{ color: PALETTE.muted }}>ตื่นนอน</div>
+              <input type="time" value={waketime} onChange={e => setWaketime(e.target.value)}
+                className="font-display text-lg font-bold w-full px-3 py-2 rounded-xl"
+                style={{ backgroundColor: PALETTE.shell, color: PALETTE.sageDeep, border: 'none' }}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-xl p-3 mb-4 text-center" style={{ backgroundColor: PALETTE.shell }}>
+            <div className="font-body text-xs" style={{ color: PALETTE.muted }}>นอนไป</div>
+            <div className="font-display text-2xl font-bold" style={{ color: '#6F58B8' }}>
+              {calcHours()} ชั่วโมง
+            </div>
+          </div>
+
+          <div className="font-accent text-xs mb-2" style={{ color: PALETTE.muted }}>คุณภาพการนอน</div>
+          <div className="flex justify-center gap-2 mb-4">
+            {[1, 2, 3, 4, 5].map(n => (
+              <button key={n} onClick={() => setQuality(n)}
+                className="smooth-tap text-3xl"
+                style={{ filter: n <= quality ? 'none' : 'grayscale(1) opacity(0.3)' }}
+              >⭐</button>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={() => setAdding(false)}
+              className="smooth-tap flex-1 py-3 rounded-xl font-display font-medium"
+              style={{ backgroundColor: PALETTE.shell, color: PALETTE.forest }}
+            >ยกเลิก</button>
+            <button onClick={save}
+              className="smooth-tap flex-2 py-3 rounded-xl font-display font-semibold text-white"
+              style={{ backgroundColor: '#6F58B8' }}
+            >บันทึก</button>
+          </div>
+        </div>
+      )}
+
+      {sleep.length > 0 ? (
+        <>
+          <div className="font-display font-semibold text-sm mb-2" style={{ color: PALETTE.sageDeep }}>
+            ประวัติการนอน
+          </div>
+          <div className="space-y-2">
+            {sleep.slice().reverse().slice(0, 7).map(s => (
+              <div key={s.id} className="rounded-xl p-3 flex items-center gap-3 organic-shadow"
+                style={{ backgroundColor: PALETTE.paper }}
+              >
+                <Moon size={20} color="#6F58B8" />
+                <div className="flex-1">
+                  <div className="font-body font-medium text-sm" style={{ color: PALETTE.forest }}>
+                    {s.hours} ชม. · {'⭐'.repeat(s.quality || 0)}
+                  </div>
+                  <div className="font-body text-xs" style={{ color: PALETTE.muted }}>
+                    {s.day} · {s.bedtime} → {s.waketime}
+                  </div>
+                </div>
+                <button onClick={() => removeSleep(s.id)} style={{ color: PALETTE.muted }}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        !adding && (
+          <div className="rounded-2xl p-8 text-center" style={{ backgroundColor: PALETTE.paper }}>
+            <Moon size={28} className="mx-auto mb-2" color={PALETTE.mist} />
+            <div className="font-body text-sm" style={{ color: PALETTE.muted }}>
+              ยังไม่มีประวัติการนอน
+            </div>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+function VitalsTab({ vitals, addVital, removeVital }) {
+  const [kind, setKind] = useState('bp');
+  const [sbp, setSbp] = useState('');
+  const [dbp, setDbp] = useState('');
+  const [sugar, setSugar] = useState('');
+  const [pulse, setPulse] = useState('');
+
+  const save = () => {
+    if (kind === 'bp') {
+      if (!sbp || !dbp) return;
+      addVital({ id: 'v' + Date.now(), day: todayKey(), time: timeNow(), kind, sbp: +sbp, dbp: +dbp, pulse: +pulse || null });
+      setSbp(''); setDbp(''); setPulse('');
+    } else {
+      if (!sugar) return;
+      addVital({ id: 'v' + Date.now(), day: todayKey(), time: timeNow(), kind, sugar: +sugar });
+      setSugar('');
+    }
+  };
+
+  return (
+    <div>
+      <div className="rounded-2xl p-4 mb-3" style={{ backgroundColor: PALETTE.paper }}>
+        <div className="flex gap-2 mb-4">
+          <button onClick={() => setKind('bp')}
+            className="smooth-tap flex-1 py-2 rounded-xl font-display font-medium text-sm"
+            style={{
+              backgroundColor: kind === 'bp' ? PALETTE.sageDeep : PALETTE.shell,
+              color: kind === 'bp' ? 'white' : PALETTE.forest,
+            }}
+          >ความดัน</button>
+          <button onClick={() => setKind('sugar')}
+            className="smooth-tap flex-1 py-2 rounded-xl font-display font-medium text-sm"
+            style={{
+              backgroundColor: kind === 'sugar' ? PALETTE.sageDeep : PALETTE.shell,
+              color: kind === 'sugar' ? 'white' : PALETTE.forest,
+            }}
+          >น้ำตาลในเลือด</button>
+        </div>
+
+        {kind === 'bp' ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <input value={sbp} onChange={e => setSbp(e.target.value.replace(/\D/g, ''))}
+                placeholder="SBP" inputMode="numeric"
+                className="font-display text-lg font-bold w-full px-3 py-3 rounded-xl text-center"
+                style={{ backgroundColor: PALETTE.shell, color: PALETTE.sageDeep, border: 'none' }}
+              />
+              <input value={dbp} onChange={e => setDbp(e.target.value.replace(/\D/g, ''))}
+                placeholder="DBP" inputMode="numeric"
+                className="font-display text-lg font-bold w-full px-3 py-3 rounded-xl text-center"
+                style={{ backgroundColor: PALETTE.shell, color: PALETTE.sageDeep, border: 'none' }}
+              />
+            </div>
+            <input value={pulse} onChange={e => setPulse(e.target.value.replace(/\D/g, ''))}
+              placeholder="ชีพจร (ไม่บังคับ)" inputMode="numeric"
+              className="font-body w-full px-4 py-3 rounded-xl mb-3 text-center"
+              style={{ backgroundColor: PALETTE.shell, color: PALETTE.forest, border: 'none' }}
+            />
+          </>
+        ) : (
+          <input value={sugar} onChange={e => setSugar(e.target.value.replace(/\D/g, ''))}
+            placeholder="mg/dL" inputMode="numeric"
+            className="font-display text-2xl font-bold w-full px-3 py-4 rounded-xl mb-3 text-center"
+            style={{ backgroundColor: PALETTE.shell, color: PALETTE.sageDeep, border: 'none' }}
+          />
+        )}
+
+        <button onClick={save}
+          className="smooth-tap w-full py-3 rounded-xl font-display font-semibold text-white"
+          style={{ backgroundColor: PALETTE.coral }}
+        >
+          บันทึก
+        </button>
+      </div>
+
+      {vitals.length > 0 ? (
+        <>
+          <div className="font-display font-semibold text-sm mb-2" style={{ color: PALETTE.sageDeep }}>
+            ประวัติย้อนหลัง
+          </div>
+          <div className="space-y-2">
+            {vitals.slice().reverse().slice(0, 10).map(v => (
+              <div key={v.id} className="rounded-xl p-3 flex items-center gap-3 organic-shadow"
+                style={{ backgroundColor: PALETTE.paper }}
+              >
+                <Stethoscope size={18} color={PALETTE.coral} />
+                <div className="flex-1">
+                  <div className="font-body font-medium text-sm" style={{ color: PALETTE.forest }}>
+                    {v.kind === 'bp' ? `${v.sbp}/${v.dbp} mmHg${v.pulse ? ` · ชีพจร ${v.pulse}` : ''}` : `น้ำตาล ${v.sugar} mg/dL`}
+                  </div>
+                  <div className="font-body text-xs" style={{ color: PALETTE.muted }}>
+                    {v.day} · {v.time}
+                  </div>
+                </div>
+                <button onClick={() => removeVital(v.id)} style={{ color: PALETTE.muted }}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="rounded-2xl p-8 text-center" style={{ backgroundColor: PALETTE.paper }}>
+          <Stethoscope size={28} className="mx-auto mb-2" color={PALETTE.mist} />
+          <div className="font-body text-sm" style={{ color: PALETTE.muted }}>
+            ยังไม่มีประวัติสัญญาณชีพ
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   Health News
+   ============================================================ */
+
+function HealthNewsCard({ profile }) {
+  const [news, setNews] = useState(() => load('gyn_news', null));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchNews = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const persona = resolvePersonality(load('gyn_persona', 'auto'), profile.age);
+      const response = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1200,
+          system: persona.prompt,
+          messages: [{
+            role: 'user',
+            content: `สรุปข่าวสารและเทคนิคสุขภาพที่น่าสนใจสำหรับวันนี้ ${new Date().toLocaleDateString('th-TH')} 3 หัวข้อ
+ให้เป็นทิปสุขภาพ ความรู้ใหม่ๆ หรือเทรนด์สุขภาพที่น่าสนใจ (ไม่ต้องเป็นข่าวจริงเฉพาะวันนั้น เน้นข้อมูลที่เป็นประโยชน์)
+
+ตอบเป็น JSON เท่านั้น ห้ามมี markdown:
+{
+  "items": [
+    {
+      "emoji": "🥗",
+      "category": "โภชนาการ/ออกกำลังกาย/นอน/จิตใจ/โรคเรื้อรัง",
+      "title": "หัวข้อสั้นๆ น่าสนใจ ไม่เกิน 50 ตัวอักษร",
+      "summary": "เนื้อหา 2-3 ประโยค ใช้บุคลิกที่กำหนด เข้าใจง่าย",
+      "tip": "ทำได้วันนี้เลย 1 ประโยค"
+    }
+  ]
+}`
+          }]
+        })
+      });
+      const data = await response.json();
+      const text = data.content.map(b => b.text || '').join('').replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(text);
+      const result = { items: parsed.items, fetchedAt: Date.now() };
+      setNews(result);
+      save('gyn_news', result);
+    } catch (e) {
+      setError('โหลดไม่สำเร็จ');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    // Auto-fetch if no news or older than 12 hours
+    if (!news || Date.now() - (news.fetchedAt || 0) > 12 * 60 * 60 * 1000) {
+      fetchNews();
+    }
+  }, []);
+
+  return (
+    <div className="anim-slideUp mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="font-display font-semibold text-sm flex items-center gap-2"
+          style={{ color: PALETTE.sageDeep }}
+        >
+          <Newspaper size={16} color={PALETTE.gold} /> ทิปสุขภาพวันนี้
+        </div>
+        <button onClick={fetchNews} disabled={busy}
+          className="smooth-tap p-1.5 rounded-lg disabled:opacity-50"
+          style={{ color: PALETTE.sageDark }}
+        >
+          <RotateCcw size={14} className={busy ? 'anim-spin-slow' : ''} />
+        </button>
+      </div>
+
+      {busy && !news && (
+        <div className="rounded-2xl p-5 deep-shadow" style={{ backgroundColor: PALETTE.paper }}>
+          <div className="space-y-2">
+            <div className="h-3 rounded-full shimmer-bg" />
+            <div className="h-3 rounded-full shimmer-bg w-4/5" />
+            <div className="h-3 rounded-full shimmer-bg w-3/5" />
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-2xl p-3 flex items-center gap-2" style={{ backgroundColor: PALETTE.coralSoft }}>
+          <AlertCircle size={14} color={PALETTE.coral} />
+          <div className="font-body text-xs" style={{ color: PALETTE.coral }}>{error}</div>
+        </div>
+      )}
+
+      {news?.items && (
+        <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-5 px-5 pb-2">
+          {news.items.map((item, i) => (
+            <div key={i}
+              className="rounded-2xl p-4 deep-shadow flex-shrink-0 anim-fadeIn"
+              style={{ width: 'calc(100vw - 80px)', maxWidth: 280, backgroundColor: PALETTE.paper, animationDelay: `${i * 100}ms` }}
+            >
+              <div className="flex items-start gap-3 mb-2">
+                <div className="text-3xl flex-shrink-0">{item.emoji}</div>
+                <div className="flex-1">
+                  <div className="font-accent text-tiny" style={{ color: PALETTE.gold }}>
+                    {item.category}
+                  </div>
+                  <div className="font-display font-bold text-sm leading-snug mt-0.5"
+                    style={{ color: PALETTE.sageDeep }}
+                  >
+                    {item.title}
+                  </div>
+                </div>
+              </div>
+              <p className="font-body text-xs leading-relaxed mb-3"
+                style={{ color: PALETTE.muted }}
+              >
+                {item.summary}
+              </p>
+              {item.tip && (
+                <div className="rounded-xl p-2.5 flex items-start gap-2"
+                  style={{ backgroundColor: PALETTE.shell }}
+                >
+                  <Zap size={12} color={PALETTE.gold} className="flex-shrink-0 mt-0.5" />
+                  <div className="font-body text-tiny font-medium" style={{ color: PALETTE.sageDark }}>
+                    {item.tip}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   Quick Record Sheet (center + button)
+   ============================================================ */
+
+function QuickRecordSheet({ open, onClose, onChoose }) {
+  if (!open) return null;
   const items = [
-    { key: 'home', icon: Home, label: 'หน้าหลัก' },
-    { key: 'food', icon: UtensilsCrossed, label: 'อาหาร' },
-    { key: 'chat', icon: MessageCircle, label: 'น้องไกด์' },
-    { key: 'medicine', icon: Pill, label: 'ตู้ยา' },
-    { key: 'mental', icon: Brain, label: 'เช็คใจ' },
+    { id: 'food', icon: UtensilsCrossed, label: 'อาหาร', desc: 'ถ่ายและบันทึกแคล', tone: PALETTE.sage },
+    { id: 'water', icon: GlassWater, label: 'น้ำดื่ม', desc: '+1 แก้ว', tone: '#6BA4D9' },
+    { id: 'exercise', icon: Dumbbell, label: 'ออกกำลังกาย', desc: 'บันทึกการเผาผลาญ', tone: PALETTE.coral },
+    { id: 'sleep', icon: Moon, label: 'การนอน', desc: 'เข้านอน/ตื่น', tone: '#6F58B8' },
+    { id: 'vitals', icon: Stethoscope, label: 'ความดัน/น้ำตาล', desc: 'สัญญาณชีพ', tone: PALETTE.gold },
+    { id: 'medicine', icon: Pill, label: 'เพิ่มยา', desc: 'ถ่ายฉลากหรือพิมพ์', tone: PALETTE.sageDark },
   ];
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40"
-      style={{ background: `linear-gradient(180deg, transparent 0%, ${PALETTE.cream} 30%)` }}
+    <div className="fixed inset-0 z-50 flex items-end anim-fadeIn"
+      style={{ backgroundColor: 'rgba(39,54,31,0.45)' }}
+      onClick={onClose}
     >
-      <div className="max-w-md mx-auto px-4 pb-4 pt-3">
-        <div className="rounded-3xl deep-shadow flex items-center justify-between px-2 py-2"
-          style={{ backgroundColor: PALETTE.paper, border: `1px solid ${PALETTE.mist}` }}
-        >
-          {items.map(({ key, icon: I, label }) => {
-            const active = current === key;
+      <div className="w-full rounded-t-3xl p-6 pb-8 deep-shadow anim-slideUp"
+        style={{ backgroundColor: PALETTE.cream }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-12 h-1 rounded-full mx-auto mb-5" style={{ backgroundColor: PALETTE.mist }} />
+        <div className="font-display text-lg font-bold mb-1 text-center" style={{ color: PALETTE.sageDeep }}>
+          วันนี้อยากบันทึกอะไร?
+        </div>
+        <p className="font-body text-xs text-center mb-5" style={{ color: PALETTE.muted }}>
+          เลือกสิ่งที่อยากบันทึก
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          {items.map((it) => {
+            const I = it.icon;
             return (
-              <button key={key} onClick={() => onNav(key)}
-                className="smooth-tap flex-1 flex flex-col items-center gap-0.5 py-2 rounded-2xl relative"
-                style={{ color: active ? PALETTE.sageDeep : PALETTE.muted }}
+              <button key={it.id} onClick={() => { onClose(); onChoose(it.id); }}
+                className="smooth-tap rounded-2xl p-3 flex flex-col items-center text-center"
+                style={{ backgroundColor: PALETTE.paper }}
               >
-                {active && (
-                  <div className="absolute inset-x-3 inset-y-0 rounded-2xl anim-fadeIn"
-                    style={{ backgroundColor: PALETTE.shell }} />
-                )}
-                <I size={20} className="relative" />
-                <span className="font-accent text-tiny relative">{label}</span>
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-2"
+                  style={{ backgroundColor: it.tone + '22', color: it.tone }}
+                >
+                  <I size={20} />
+                </div>
+                <div className="font-display font-semibold text-tiny" style={{ color: PALETTE.forest }}>
+                  {it.label}
+                </div>
+                <div className="font-body text-tiny mt-0.5 leading-tight" style={{ color: PALETTE.muted }}>
+                  {it.desc}
+                </div>
               </button>
             );
           })}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   More menu — รวมเมนูที่ไม่ได้ใช้บ่อย
+   ============================================================ */
+
+function MoreMenu({ goto, openPrintModal }) {
+  const items = [
+    { id: 'medicine', icon: Pill, label: 'ตู้ยา', desc: 'จัดการยาและฉลาก', tone: PALETTE.gold },
+    { id: 'mental', icon: Brain, label: 'เช็คใจ', desc: 'คัดกรองสุขภาพจิต', tone: PALETTE.sageDark },
+    { id: 'print', icon: Printer, label: 'พิมพ์รายงาน', desc: 'ส่งให้แพทย์ หรือบันทึก PDF', tone: PALETTE.sage, isPrint: true },
+    { id: 'profile', icon: User, label: 'โปรไฟล์', desc: 'ข้อมูลส่วนตัว · ความเป็นส่วนตัว · บุคลิก AI', tone: PALETTE.coral },
+  ];
+  return (
+    <div className="pb-32 anim-fadeIn">
+      <div className="px-5 pt-6">
+        <div className="font-accent text-sm mb-1" style={{ color: PALETTE.gold }}>MORE</div>
+        <h1 className="font-display text-3xl font-bold mb-5" style={{ color: PALETTE.sageDeep }}>
+          เพิ่มเติม
+        </h1>
+
+        <div className="space-y-3">
+          {items.map((it) => {
+            const I = it.icon;
+            return (
+              <button key={it.id}
+                onClick={() => it.isPrint ? openPrintModal() : goto(it.id)}
+                className="smooth-tap w-full rounded-2xl p-4 flex items-center gap-4 organic-shadow text-left"
+                style={{ backgroundColor: PALETTE.paper }}
+              >
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: it.tone + '22', color: it.tone }}
+                >
+                  <I size={22} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-display font-semibold" style={{ color: PALETTE.forest }}>
+                    {it.label}
+                  </div>
+                  <div className="font-body text-xs mt-0.5" style={{ color: PALETTE.muted }}>
+                    {it.desc}
+                  </div>
+                </div>
+                <ChevronRight size={18} color={PALETTE.muted} />
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-8 rounded-2xl p-3 flex items-start gap-2"
+          style={{ backgroundColor: PALETTE.shell }}
+        >
+          <Shield size={14} color={PALETTE.sageDark} className="flex-shrink-0 mt-0.5" />
+          <p className="font-body text-tiny leading-relaxed" style={{ color: PALETTE.sageDark }}>
+            ข้อมูลของคุณเก็บไว้ในอุปกรณ์เท่านั้น ไม่ได้ส่งไปไหน คำแนะนำจาก AI เป็นเพียงข้อมูลเบื้องต้น
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   Print Report Modal
+   ============================================================ */
+
+function PrintModal({ open, onClose, profile, foodLog, medicines, water, exercises, sleep, vitals, chatMessages }) {
+  const [sections, setSections] = useState({
+    summary: true, food: true, medicine: true, water: false, exercise: false, sleep: false, vitals: false,
+  });
+  const [period, setPeriod] = useState('7'); // 7 / 30 / all days
+  const [printing, setPrinting] = useState(false);
+
+  if (!open) return null;
+
+  const toggleSection = (k) => setSections(s => ({ ...s, [k]: !s[k] }));
+
+  const handlePrint = () => {
+    setPrinting(true);
+    setTimeout(() => {
+      generatePrintReport({ profile, foodLog, medicines, water, exercises, sleep, vitals, sections, period });
+      setPrinting(false);
+    }, 100);
+  };
+
+  const SECTIONS = [
+    { id: 'summary', icon: User, label: 'ข้อมูลส่วนตัวและ BMI', desc: 'ชื่อ อายุ ส่วนสูง น้ำหนัก แพ้อาหาร แพ้ยา' },
+    { id: 'food', icon: UtensilsCrossed, label: 'ประวัติการกิน', desc: 'รายการอาหารและแคลอรี่' },
+    { id: 'medicine', icon: Pill, label: 'รายการยา', desc: 'ยาในตู้ทั้งหมด' },
+    { id: 'water', icon: GlassWater, label: 'การดื่มน้ำ', desc: 'ปริมาณน้ำต่อวัน' },
+    { id: 'exercise', icon: Dumbbell, label: 'การออกกำลังกาย', desc: 'ประเภทและแคลที่เผาผลาญ' },
+    { id: 'sleep', icon: Moon, label: 'การนอน', desc: 'ชั่วโมงและคุณภาพ' },
+    { id: 'vitals', icon: Stethoscope, label: 'ความดัน / น้ำตาล', desc: 'สัญญาณชีพ' },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end anim-fadeIn"
+      style={{ backgroundColor: 'rgba(39,54,31,0.45)' }}
+      onClick={onClose}
+    >
+      <div className="w-full rounded-t-3xl deep-shadow anim-slideUp"
+        style={{ backgroundColor: PALETTE.cream, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-12 h-1 rounded-full mx-auto my-3 flex-shrink-0" style={{ backgroundColor: PALETTE.mist }} />
+
+        <div className="px-6 pb-2 flex-shrink-0">
+          <h3 className="font-display text-xl font-bold mb-1" style={{ color: PALETTE.sageDeep }}>
+            พิมพ์รายงานสุขภาพ
+          </h3>
+          <p className="font-body text-sm mb-4" style={{ color: PALETTE.muted }}>
+            เลือกข้อมูลที่ต้องการพิมพ์ — ใช้ส่งให้แพทย์หรือเก็บไว้ดูเองได้
+          </p>
+
+          <div className="font-accent text-xs mb-2" style={{ color: PALETTE.gold }}>ช่วงเวลา</div>
+          <div className="flex gap-2 mb-4">
+            {[
+              { v: '7', l: '7 วัน' },
+              { v: '30', l: '30 วัน' },
+              { v: 'all', l: 'ทั้งหมด' },
+            ].map(p => (
+              <button key={p.v} onClick={() => setPeriod(p.v)}
+                className="smooth-tap flex-1 py-2 rounded-xl font-display font-medium text-sm"
+                style={{
+                  backgroundColor: period === p.v ? PALETTE.sageDeep : PALETTE.paper,
+                  color: period === p.v ? 'white' : PALETTE.forest,
+                  border: `1px solid ${period === p.v ? PALETTE.sageDeep : PALETTE.mist}`,
+                }}
+              >{p.l}</button>
+            ))}
+          </div>
+
+          <div className="font-accent text-xs mb-2" style={{ color: PALETTE.gold }}>ข้อมูลที่จะใส่</div>
+        </div>
+
+        <div className="px-6 pb-3 overflow-y-auto flex-1 no-scrollbar">
+          <div className="space-y-2 mb-4">
+            {SECTIONS.map(s => {
+              const I = s.icon;
+              const active = sections[s.id];
+              return (
+                <button key={s.id} onClick={() => toggleSection(s.id)}
+                  className="smooth-tap w-full rounded-xl p-3 flex items-center gap-3 text-left"
+                  style={{
+                    backgroundColor: active ? PALETTE.paper : 'transparent',
+                    border: `1.5px solid ${active ? PALETTE.sage : PALETTE.mist}`,
+                  }}
+                >
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: active ? PALETTE.sage + '22' : PALETTE.shell, color: active ? PALETTE.sageDark : PALETTE.muted }}
+                  >
+                    <I size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-display font-medium text-sm" style={{ color: active ? PALETTE.forest : PALETTE.muted }}>
+                      {s.label}
+                    </div>
+                    <div className="font-body text-tiny" style={{ color: PALETTE.muted }}>
+                      {s.desc}
+                    </div>
+                  </div>
+                  <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+                    style={{
+                      backgroundColor: active ? PALETTE.sage : 'transparent',
+                      border: `1.5px solid ${active ? PALETTE.sage : PALETTE.mist}`,
+                    }}
+                  >
+                    {active && <Check size={14} color="white" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="px-6 pt-3 pb-6 flex-shrink-0" style={{ borderTop: `1px solid ${PALETTE.mist}` }}>
+          <div className="flex gap-2">
+            <button onClick={onClose}
+              className="smooth-tap flex-1 py-3.5 rounded-2xl font-display font-medium"
+              style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
+            >ยกเลิก</button>
+            <button onClick={handlePrint} disabled={printing}
+              className="smooth-tap flex-2 py-3.5 rounded-2xl font-display font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50"
+              style={{ backgroundColor: PALETTE.sageDark }}
+            >
+              {printing ? <Loader2 size={16} className="anim-spin-slow" /> : <Printer size={16} />}
+              พิมพ์ / บันทึก PDF
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function generatePrintReport({ profile, foodLog, medicines, water, exercises, sleep, vitals, sections, period }) {
+  // Filter by period
+  const days = period === 'all' ? null : lastNDaysKeys(period === '7' ? 7 : 30);
+  const inRange = (d) => !days || days.includes(d);
+
+  const fFood = foodLog.filter(f => inRange(f.day));
+  const fWater = water.filter(w => inRange(w.day));
+  const fEx = exercises.filter(e => inRange(e.day));
+  const fSleep = sleep.filter(s => inRange(s.day));
+  const fVitals = vitals.filter(v => inRange(v.day));
+
+  const bmi = calcBMI(profile.weight, profile.height);
+  const bmr = calcBMR(profile);
+  const tdee = calcTDEE(bmr);
+  const today = new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Build HTML
+  const css = `
+    @page { margin: 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Sarabun', 'Prompt', -apple-system, sans-serif; color: #27361F; line-height: 1.6; margin: 0; padding: 0; font-size: 11pt; }
+    .header { border-bottom: 3px solid #4F6D45; padding-bottom: 16px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-name { font-size: 18pt; font-weight: 700; color: #4F6D45; letter-spacing: -0.02em; }
+    .brand-sub { font-size: 9pt; color: #8A8676; }
+    .doc-date { font-size: 9pt; color: #8A8676; text-align: right; }
+    h2 { font-size: 14pt; color: #2E4429; margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #E8DFC9; display: flex; align-items: center; gap: 8px; }
+    h2 .ico { width: 24px; height: 24px; background: #E8DFC9; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12pt; }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 24px; margin-bottom: 8px; }
+    .field { padding: 8px 0; border-bottom: 1px dotted #E8DFC9; }
+    .field-label { font-size: 9pt; color: #8A8676; text-transform: uppercase; letter-spacing: 0.05em; }
+    .field-value { font-size: 12pt; font-weight: 600; color: #27361F; margin-top: 2px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 9pt; font-weight: 500; margin-right: 4px; margin-top: 4px; background: #F2C9B8; color: #D9684A; }
+    table { width: 100%; border-collapse: collapse; font-size: 10pt; margin-top: 8px; }
+    th { text-align: left; padding: 8px; background: #F0E7D2; color: #4F6D45; font-weight: 600; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.03em; }
+    td { padding: 8px; border-bottom: 1px solid #E8DFC9; }
+    tr:last-child td { border-bottom: none; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .stats-row { display: flex; gap: 16px; margin-top: 8px; }
+    .stat-card { flex: 1; padding: 10px 12px; background: #F0E7D2; border-radius: 8px; }
+    .stat-label { font-size: 8pt; color: #8A8676; text-transform: uppercase; }
+    .stat-value { font-size: 14pt; font-weight: 700; color: #4F6D45; }
+    .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #E8DFC9; font-size: 8pt; color: #8A8676; text-align: center; }
+    .disclaimer { background: #F2C9B8; color: #B8453A; padding: 10px 14px; border-radius: 8px; font-size: 9pt; margin: 16px 0; }
+    .empty { color: #8A8676; font-style: italic; font-size: 10pt; padding: 8px 0; }
+    @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+  `;
+
+  // Group foods by day for the table
+  const foodByDay = {};
+  fFood.forEach(f => { (foodByDay[f.day] = foodByDay[f.day] || []).push(f); });
+  const sortedDays = Object.keys(foodByDay).sort().reverse();
+
+  const avgDailyCal = sortedDays.length ? Math.round(sortedDays.reduce((s, d) => s + foodByDay[d].reduce((a, b) => a + (b.calories || 0), 0), 0) / sortedDays.length) : 0;
+
+  // Section builders
+  const summarySection = sections.summary ? `
+    <h2><span class="ico">👤</span> ข้อมูลส่วนตัว</h2>
+    <div class="grid">
+      <div class="field"><div class="field-label">ชื่อ</div><div class="field-value">${profile.name}</div></div>
+      <div class="field"><div class="field-label">เพศ · อายุ</div><div class="field-value">${profile.gender === 'female' ? 'หญิง' : 'ชาย'} · ${profile.age} ปี</div></div>
+      <div class="field"><div class="field-label">ส่วนสูง</div><div class="field-value">${profile.height} ซม.</div></div>
+      <div class="field"><div class="field-label">น้ำหนัก</div><div class="field-value">${profile.weight} กก.</div></div>
+      <div class="field"><div class="field-label">BMI</div><div class="field-value">${bmi || '-'} <span style="font-size:9pt;color:#8A8676">(${bmiCategory(bmi).label})</span></div></div>
+      <div class="field"><div class="field-label">BMR / TDEE</div><div class="field-value">${bmr || '-'} / ${tdee || '-'} kcal</div></div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="field-label">แพ้อาหาร</div>
+      <div style="margin-top:4px">${profile.foodAllergy.length ? profile.foodAllergy.map(a => `<span class="pill">${a}</span>`).join('') : '<span class="empty">ไม่มี</span>'}</div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="field-label">แพ้ยา</div>
+      <div style="margin-top:4px">${profile.drugAllergy.length ? profile.drugAllergy.map(a => `<span class="pill">${a}</span>`).join('') : '<span class="empty">ไม่มี</span>'}</div>
+    </div>
+  ` : '';
+
+  const foodSection = sections.food ? `
+    <h2><span class="ico">🍽</span> ประวัติการกิน</h2>
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">จำนวนมื้อ</div><div class="stat-value">${fFood.length}</div></div>
+      <div class="stat-card"><div class="stat-label">เฉลี่ย kcal/วัน</div><div class="stat-value">${avgDailyCal}</div></div>
+      <div class="stat-card"><div class="stat-label">วันที่บันทึก</div><div class="stat-value">${sortedDays.length} วัน</div></div>
+    </div>
+    ${fFood.length === 0 ? '<div class="empty">ไม่มีบันทึก</div>' : `
+    <table>
+      <thead><tr><th>วันที่</th><th>เวลา</th><th>รายการ</th><th class="num">แคล (kcal)</th></tr></thead>
+      <tbody>
+        ${sortedDays.flatMap(d => foodByDay[d].map(f => `
+          <tr><td>${d}</td><td>${f.time}</td><td>${f.name || '-'}</td><td class="num">${f.calories || 0}</td></tr>
+        `)).join('')}
+      </tbody>
+    </table>`}
+  ` : '';
+
+  const medicineSection = sections.medicine ? `
+    <h2><span class="ico">💊</span> รายการยาในตู้ยา</h2>
+    ${medicines.length === 0 ? '<div class="empty">ยังไม่มียาในตู้</div>' : medicines.map(m => `
+      <div style="padding: 10px 0; border-bottom: 1px solid #E8DFC9;">
+        <div style="font-weight: 600; font-size: 11pt; color: #27361F;">${m.name} ${m.dosage ? `<span style="font-weight:400;color:#8A8676">· ${m.dosage}</span>` : ''}</div>
+        <div style="font-size: 9pt; color: #4F6D45; margin-top: 2px;">${m.category || ''}</div>
+        ${m.usage ? `<div style="font-size: 10pt; margin-top: 4px;">${m.usage}</div>` : ''}
+        ${m.dosageTip ? `<div style="font-size: 9pt; color: #8A8676; margin-top: 2px;"><b>วิธีใช้:</b> ${m.dosageTip}</div>` : ''}
+        ${m.warnings?.length ? `<div style="font-size: 9pt; color: #B8453A; margin-top: 4px;"><b>ข้อควรระวัง:</b> ${m.warnings.join(' · ')}</div>` : ''}
+      </div>
+    `).join('')}
+  ` : '';
+
+  const waterSection = sections.water ? `
+    <h2><span class="ico">💧</span> การดื่มน้ำ</h2>
+    ${(() => {
+      const byDay = {};
+      fWater.forEach(w => { byDay[w.day] = (byDay[w.day] || 0) + (w.ml || 0); });
+      const dList = Object.keys(byDay).sort().reverse();
+      if (dList.length === 0) return '<div class="empty">ไม่มีบันทึก</div>';
+      return `<table>
+        <thead><tr><th>วันที่</th><th class="num">ปริมาณ (ml)</th></tr></thead>
+        <tbody>${dList.map(d => `<tr><td>${d}</td><td class="num">${byDay[d]}</td></tr>`).join('')}</tbody>
+      </table>`;
+    })()}
+  ` : '';
+
+  const exerciseSection = sections.exercise ? `
+    <h2><span class="ico">💪</span> การออกกำลังกาย</h2>
+    ${fEx.length === 0 ? '<div class="empty">ไม่มีบันทึก</div>' : `
+    <table>
+      <thead><tr><th>วันที่</th><th>ประเภท</th><th class="num">นาที</th><th class="num">เผาผลาญ (kcal)</th></tr></thead>
+      <tbody>${fEx.slice().reverse().map(e => `
+        <tr><td>${e.day}</td><td>${e.label}</td><td class="num">${e.minutes}</td><td class="num">${e.calories}</td></tr>
+      `).join('')}</tbody>
+    </table>`}
+  ` : '';
+
+  const sleepSection = sections.sleep ? `
+    <h2><span class="ico">🌙</span> การนอน</h2>
+    ${fSleep.length === 0 ? '<div class="empty">ไม่มีบันทึก</div>' : `
+    <table>
+      <thead><tr><th>วันที่</th><th>เข้านอน → ตื่น</th><th class="num">ชั่วโมง</th><th>คุณภาพ</th></tr></thead>
+      <tbody>${fSleep.slice().reverse().map(s => `
+        <tr><td>${s.day}</td><td>${s.bedtime} → ${s.waketime}</td><td class="num">${s.hours}</td><td>${'★'.repeat(s.quality || 0)}</td></tr>
+      `).join('')}</tbody>
+    </table>`}
+  ` : '';
+
+  const vitalsSection = sections.vitals ? `
+    <h2><span class="ico">🩺</span> สัญญาณชีพ</h2>
+    ${fVitals.length === 0 ? '<div class="empty">ไม่มีบันทึก</div>' : `
+    <table>
+      <thead><tr><th>วันที่</th><th>เวลา</th><th>ประเภท</th><th class="num">ค่า</th></tr></thead>
+      <tbody>${fVitals.slice().reverse().map(v => `
+        <tr><td>${v.day}</td><td>${v.time}</td><td>${v.kind === 'bp' ? 'ความดัน' : 'น้ำตาล'}</td><td class="num">${v.kind === 'bp' ? `${v.sbp}/${v.dbp} mmHg${v.pulse ? ` · ${v.pulse} bpm` : ''}` : `${v.sugar} mg/dL`}</td></tr>
+      `).join('')}</tbody>
+    </table>`}
+  ` : '';
+
+  const periodLabel = period === '7' ? '7 วันล่าสุด' : period === '30' ? '30 วันล่าสุด' : 'ข้อมูลทั้งหมด';
+
+  const html = `<!DOCTYPE html>
+<html lang="th"><head><meta charset="UTF-8"><title>รายงานสุขภาพ — ${profile.name}</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=Prompt:wght@500;600;700&display=swap" rel="stylesheet">
+<style>${css}</style></head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div style="width:40px;height:40px;background:#4F6D45;border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:18pt;">G</div>
+      <div>
+        <div class="brand-name">GINYARAIDEE</div>
+        <div class="brand-sub">รายงานสุขภาพส่วนบุคคล</div>
+      </div>
+    </div>
+    <div class="doc-date">
+      <div>วันที่พิมพ์: ${today}</div>
+      <div>ช่วงข้อมูล: ${periodLabel}</div>
+    </div>
+  </div>
+
+  ${summarySection}
+  ${foodSection}
+  ${medicineSection}
+  ${waterSection}
+  ${exerciseSection}
+  ${sleepSection}
+  ${vitalsSection}
+
+  <div class="disclaimer">
+    <b>หมายเหตุ:</b> ข้อมูลในรายงานนี้บันทึกโดยผู้ใช้และวิเคราะห์ด้วย AI เป็นข้อมูลเบื้องต้นเท่านั้น ไม่ใช่การวินิจฉัยทางการแพทย์
+    หากมีข้อสงสัยหรืออาการผิดปกติ โปรดปรึกษาแพทย์หรือเภสัชกร
+  </div>
+
+  <div class="footer">
+    Generated by GINYARAIDEE · ${today}<br>
+    ข้อมูลนี้เป็นความลับและจัดทำสำหรับ ${profile.name} เท่านั้น
+  </div>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) {
+    alert('Browser ปิดป็อปอัพไว้ — กรุณาเปิดให้ป็อปอัพแสดงเพื่อพิมพ์รายงาน');
+    return;
+  }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { w.print(); }, 500);
+}
+
+/* ============================================================
+   Bottom Nav with center + button
+   ============================================================ */
+
+function BottomNav({ current, onNav, onCenterTap }) {
+  const left = [
+    { key: 'home', icon: Home, label: 'หน้าหลัก' },
+    { key: 'health', icon: Activity, label: 'สุขภาพ' },
+  ];
+  const right = [
+    { key: 'chat', icon: MessageCircle, label: 'น้องไกด์' },
+    { key: 'more', icon: MoreHorizontal, label: 'เพิ่มเติม' },
+  ];
+
+  const Tab = ({ k, I, label }) => {
+    const active = current === k;
+    return (
+      <button onClick={() => onNav(k)}
+        className="smooth-tap flex-1 flex flex-col items-center gap-0.5 py-2 rounded-2xl relative"
+        style={{ color: active ? PALETTE.sageDeep : PALETTE.muted }}
+      >
+        {active && (
+          <div className="absolute inset-x-2 inset-y-0 rounded-2xl anim-fadeIn"
+            style={{ backgroundColor: PALETTE.shell }} />
+        )}
+        <I size={20} className="relative" />
+        <span className="font-accent text-tiny relative">{label}</span>
+      </button>
+    );
+  };
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40"
+      style={{ background: `linear-gradient(180deg, transparent 0%, ${PALETTE.cream} 30%)` }}
+    >
+      <div className="max-w-md mx-auto px-4 pb-4 pt-3 relative">
+        <div className="rounded-3xl deep-shadow flex items-center px-2 py-2 relative"
+          style={{ backgroundColor: PALETTE.paper, border: `1px solid ${PALETTE.mist}` }}
+        >
+          {left.map(({ key, icon, label }) => <Tab key={key} k={key} I={icon} label={label} />)}
+
+          {/* Spacer for the floating + button */}
+          <div style={{ width: 64 }} />
+
+          {right.map(({ key, icon, label }) => <Tab key={key} k={key} I={icon} label={label} />)}
+        </div>
+
+        {/* Floating center + button */}
+        <button onClick={onCenterTap}
+          className="smooth-tap absolute left-1/2 -translate-x-1/2 -top-2 w-16 h-16 rounded-full flex items-center justify-center deep-shadow anim-pulseGlow"
+          style={{
+            backgroundColor: PALETTE.sageDeep,
+            color: 'white',
+            backgroundImage: 'radial-gradient(circle at 30% 20%, rgba(201,163,107,0.4), transparent 60%)',
+          }}
+          aria-label="บันทึก"
+        >
+          <Plus size={28} strokeWidth={2.5} />
+        </button>
       </div>
     </div>
   );
@@ -2643,7 +3864,13 @@ export default function App() {
   const [chatMessages, _setChat] = useState(() => load('gyn_chat', []));
   const [medicines, _setMeds] = useState(() => load('gyn_meds', []));
   const [personality, _setPersonality] = useState(() => load('gyn_persona', 'auto'));
+  const [water, _setWater] = useState(() => load('gyn_water', []));
+  const [exercises, _setExercises] = useState(() => load('gyn_exercises', []));
+  const [sleep, _setSleep] = useState(() => load('gyn_sleep', []));
+  const [vitals, _setVitals] = useState(() => load('gyn_vitals', []));
   const [modalOpen, setModalOpen] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
   const [privacy, _setPrivacy] = useState(() => load('gyn_privacy', {
     showHeight: true, showWeight: true, showAge: true, showAllergies: false,
   }));
@@ -2697,6 +3924,10 @@ export default function App() {
   const setMedicines = (v) => { _setMeds(v); save('gyn_meds', v); };
   const setPrivacy = (v) => { _setPrivacy(v); save('gyn_privacy', v); };
   const setPersonality = (v) => { _setPersonality(v); save('gyn_persona', v); };
+  const setWater = (v) => { _setWater(v); save('gyn_water', v); };
+  const setExercises = (v) => { _setExercises(v); save('gyn_exercises', v); };
+  const setSleep = (v) => { _setSleep(v); save('gyn_sleep', v); };
+  const setVitals = (v) => { _setVitals(v); save('gyn_vitals', v); };
 
   useEffect(() => {
     document.body.style.backgroundColor = PALETTE.cream;
@@ -2715,11 +3946,23 @@ export default function App() {
   }
 
   const reset = () => {
-    ['gyn_profile','gyn_foodlog','gyn_chat','gyn_meds','gyn_privacy','gyn_persona'].forEach(k => localStorage.removeItem(k));
+    ['gyn_profile','gyn_foodlog','gyn_chat','gyn_meds','gyn_privacy','gyn_persona',
+     'gyn_water','gyn_exercises','gyn_sleep','gyn_vitals','gyn_news'].forEach(k => localStorage.removeItem(k));
     _setProfile(null); _setFoodLog([]); _setChat([]); _setMeds([]);
+    _setWater([]); _setExercises([]); _setSleep([]); _setVitals([]);
     _setPrivacy({ showHeight: true, showWeight: true, showAge: true, showAllergies: false });
     _setPersonality('auto');
     setScreen('home');
+  };
+
+  // Handle quick record choice
+  const handleQuickChoose = (id) => {
+    if (id === 'food') setScreen('food');
+    else if (id === 'medicine') setScreen('medicine');
+    else if (id === 'water' || id === 'exercise' || id === 'sleep' || id === 'vitals') {
+      setScreen('health');
+      // store the target tab so HealthHub can read it (best effort: just go to hub)
+    }
   };
 
   return (
@@ -2730,6 +3973,22 @@ export default function App() {
       >
         <div className="max-w-md mx-auto relative">
           {screen === 'home' && <Dashboard profile={profile} foodLog={foodLog} goto={setScreen} />}
+          {screen === 'health' && (
+            <HealthHub profile={profile}
+              water={water}
+              addWater={(w) => setWater([...water, w])}
+              removeWater={(id) => setWater(water.filter(x => x.id !== id))}
+              sleep={sleep}
+              addSleep={(s) => setSleep([...sleep, s])}
+              removeSleep={(id) => setSleep(sleep.filter(x => x.id !== id))}
+              exercises={exercises}
+              addExercise={(e) => setExercises([...exercises, e])}
+              removeExercise={(id) => setExercises(exercises.filter(x => x.id !== id))}
+              vitals={vitals}
+              addVital={(v) => setVitals([...vitals, v])}
+              removeVital={(id) => setVitals(vitals.filter(x => x.id !== id))}
+            />
+          )}
           {screen === 'food' && (
             <FoodLog profile={profile} foodLog={foodLog}
               addFood={(f) => setFoodLog([...foodLog, f])}
@@ -2744,6 +4003,7 @@ export default function App() {
               personality={personality}
             />
           )}
+          {screen === 'more' && <MoreMenu goto={setScreen} openPrintModal={() => setPrintOpen(true)} />}
           {screen === 'medicine' && (
             <MedicineCabinet medicines={medicines}
               onModalChange={setModalOpen}
@@ -2760,7 +4020,32 @@ export default function App() {
           )}
         </div>
 
-        {!modalOpen && <BottomNav current={screen} onNav={setScreen} />}
+        {!modalOpen && (
+          <BottomNav
+            current={screen}
+            onNav={setScreen}
+            onCenterTap={() => setQuickOpen(true)}
+          />
+        )}
+
+        <QuickRecordSheet
+          open={quickOpen}
+          onClose={() => setQuickOpen(false)}
+          onChoose={handleQuickChoose}
+        />
+
+        <PrintModal
+          open={printOpen}
+          onClose={() => setPrintOpen(false)}
+          profile={profile}
+          foodLog={foodLog}
+          medicines={medicines}
+          water={water}
+          exercises={exercises}
+          sleep={sleep}
+          vitals={vitals}
+          chatMessages={chatMessages}
+        />
 
         {updateInfo && (
           <UpdateBanner info={updateInfo} onUpdate={acceptUpdate} onDismiss={dismissUpdate} />
