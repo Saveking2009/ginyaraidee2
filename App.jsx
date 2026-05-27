@@ -529,6 +529,501 @@ function Onboarding({ onDone }) {
   );
 }
 
+function AllergySection({ label, icon, items, setItems, input, se@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(135, 168, 120, 0.4); }
+  50% { box-shadow: 0 0 0 14px rgba(135, 168, 120, 0); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.anim-fadeUp { animation: fadeUp 0.5s ease-out both; }
+.anim-fadeIn { animation: fadeIn 0.4s ease-out both; }
+.anim-slideUp { animation: slideUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-float { animation: float 4s ease-in-out infinite; }
+.anim-pulseGlow { animation: pulseGlow 2.2s ease-in-out infinite; }
+.anim-spin-slow { animation: spinSlow 8s linear infinite; }
+
+.delay-1 { animation-delay: 60ms; }
+.delay-2 { animation-delay: 120ms; }
+.delay-3 { animation-delay: 180ms; }
+.delay-4 { animation-delay: 240ms; }
+.delay-5 { animation-delay: 300ms; }
+.delay-6 { animation-delay: 360ms; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.shimmer-bg {
+  background: linear-gradient(90deg, #F0E7D2 0%, #F7F1E6 50%, #F0E7D2 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+.smooth-tap { transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease; }
+.smooth-tap:active { transform: scale(0.97); }
+
+.organic-shadow { box-shadow: 0 1px 2px rgba(46, 68, 41, 0.04), 0 8px 24px -8px rgba(46, 68, 41, 0.10); }
+.deep-shadow { box-shadow: 0 4px 12px rgba(46, 68, 41, 0.08), 0 16px 40px -12px rgba(46, 68, 41, 0.18); }
+
+.grain-bg {
+  background-image:
+    radial-gradient(at 20% 10%, rgba(135, 168, 120, 0.08) 0px, transparent 50%),
+    radial-gradient(at 80% 90%, rgba(217, 104, 74, 0.06) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(201, 163, 107, 0.05) 0px, transparent 50%);
+}
+
+.thai-deco {
+  background-image:
+    radial-gradient(circle at 0% 0%, transparent 28%, rgba(201, 163, 107, 0.18) 29%, rgba(201, 163, 107, 0.18) 30%, transparent 31%),
+    radial-gradient(circle at 100% 100%, transparent 28%, rgba(135, 168, 120, 0.18) 29%, rgba(135, 168, 120, 0.18) 30%, transparent 31%);
+  background-size: 40px 40px;
+}
+
+input, textarea, button, select { font-family: inherit; }
+input:focus, textarea:focus, select:focus { outline: none; }
+
+.chip-input:focus-within { border-color: ${PALETTE.sage}; box-shadow: 0 0 0 4px rgba(135, 168, 120, 0.15); }
+
+.text-tiny { font-size: 10px; line-height: 14px; }
+.chat-screen-h { height: calc(100vh - 96px); min-height: 480px; }
+.chip-input-field { min-width: 120px; }
+.max-w-80 { max-width: 80%; }
+.flex-2 { flex: 2 1 0%; }
+`;
+
+/* ============================================================
+   Helpers
+   ============================================================ */
+
+function calcBMI(w, h) {
+  if (!w || !h) return null;
+  const m = h / 100;
+  return +(w / (m * m)).toFixed(1);
+}
+function bmiCategory(bmi) {
+  if (!bmi) return { label: '-', tone: PALETTE.muted };
+  if (bmi < 18.5) return { label: 'ผอม', tone: '#6BA4D9' };
+  if (bmi < 23) return { label: 'สมส่วน', tone: PALETTE.sage };
+  if (bmi < 25) return { label: 'ท้วม', tone: PALETTE.gold };
+  if (bmi < 30) return { label: 'น้ำหนักเกิน', tone: PALETTE.coral };
+  return { label: 'อ้วน', tone: '#B8453A' };
+}
+function calcBMR({ gender, weight, height, age }) {
+  if (!weight || !height || !age) return null;
+  if (gender === 'female') return Math.round(10 * weight + 6.25 * height - 5 * age - 161);
+  return Math.round(10 * weight + 6.25 * height - 5 * age + 5);
+}
+function calcTDEE(bmr, activity = 1.4) {
+  if (!bmr) return null;
+  return Math.round(bmr * activity);
+}
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function timeNow() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/* ============================================================
+   AI Personalities — auto-select by age, user can override
+   ============================================================ */
+
+const PERSONALITIES = {
+  auto: {
+    id: 'auto',
+    label: 'อัตโนมัติ',
+    sub: 'ปรับตามอายุ',
+    icon: '🪄',
+    desc: 'หนูจะเลือกบุคลิกที่เหมาะกับช่วงอายุของพี่เอง',
+  },
+  kid: {
+    id: 'kid',
+    label: 'พี่เลี้ยงใจดี',
+    sub: 'สำหรับเด็กเล็ก',
+    icon: '🧸',
+    desc: 'อบอุ่น พูดง่ายๆ เข้าใจง่าย น่ารัก',
+    prompt: `คุณคือ "พี่ไกด์" พี่เลี้ยงใจดีของน้องเด็กเล็ก
+- เรียกตัวเองว่า "พี่" เรียกผู้ใช้ว่า "น้อง..."
+- พูดน่ารัก คำง่ายๆ เข้าใจง่าย ใช้ emoji เยอะหน่อย 🌟✨💛
+- อธิบายเรื่องสุขภาพแบบสนุก เปรียบเทียบเหมือนนิทาน
+- ห่วงเรื่องการกินผักผลไม้ การล้างมือ การนอน
+- ถ้าน้องป่วยหนัก ให้บอกน้องไปบอกคุณพ่อคุณแม่ทันที`,
+  },
+  teen: {
+    id: 'teen',
+    label: 'เพื่อนซี้',
+    sub: 'สำหรับวัยรุ่น',
+    icon: '🤝',
+    desc: 'เป็นกันเอง ใช้ภาษาวัยรุ่น เข้าใจกัน',
+    prompt: `คุณคือ "ไกด์" เพื่อนวัยรุ่นที่คุยสบาย ไม่ทางการ
+- เรียกตัวเองว่า "เรา" เรียกผู้ใช้ว่า "เธอ"
+- ใช้ภาษาวัยรุ่นเป็นธรรมชาติ ไม่ฝืน เช่น "เออ", "ถ้ามันแบบ...", "งงๆ ใช่ป่ะ"
+- ใส่ใจเรื่องที่วัยรุ่นกังวล: สิว ผม น้ำหนัก ความเครียดเรียน นอนน้อย หน้าจอ
+- ตรงไปตรงมา แต่ไม่ judge
+- เน้นว่ามีอะไรปรึกษาผู้ใหญ่ที่ไว้ใจได้`,
+  },
+  default: {
+    id: 'default',
+    label: 'น้องไกด์',
+    sub: 'น้องสาวใจดี',
+    icon: '🌿',
+    desc: 'อบอุ่น เป็นมิตร สรรพนาม "หนู" / "พี่"',
+    prompt: `คุณคือ "น้องไกด์" น้องสาวใจดี อบอุ่น เป็นมิตร
+- เรียกตัวเองว่า "หนู" เรียกผู้ใช้ว่า "พี่"
+- น่ารัก เป็นกันเอง อบอุ่น ใช้ emoji เล็กน้อย
+- ดูแลเรื่องสุขภาพประจำวัน อาหาร การออกกำลังกาย`,
+  },
+  formal: {
+    id: 'formal',
+    label: 'ผู้ช่วยสุขภาพ',
+    sub: 'สุภาพ มืออาชีพ',
+    icon: '👔',
+    desc: 'เป็นทางการ ข้อมูลแน่น ตรงประเด็น',
+    prompt: `คุณคือผู้ช่วยสุขภาพมืออาชีพ
+- เรียกตัวเองว่า "ผู้ช่วย" เรียกผู้ใช้ว่า "คุณ"
+- ภาษาสุภาพ เป็นทางการ ไม่ใช้ emoji
+- ข้อมูลตรงประเด็น มีโครงสร้าง
+- ระวังเรื่องความดัน เบาหวาน คอเลสเตอรอล โรคเรื้อรัง
+- ลงท้ายด้วย "ครับ/ค่ะ" สุภาพ`,
+  },
+  grandkid: {
+    id: 'grandkid',
+    label: 'หลานใจดี',
+    sub: 'สำหรับผู้สูงวัย',
+    icon: '🌷',
+    desc: 'อ่อนหวาน เป็นห่วง พูดช้าๆ ชัดๆ',
+    prompt: `คุณคือ "หลานไกด์" หลานสาวที่อบอุ่นและเป็นห่วงผู้สูงวัย
+- เรียกตัวเองว่า "หลาน" เรียกผู้ใช้ว่า "คุณตา/คุณยาย" (เลือกตามเพศ — ชาย=ตา หญิง=ยาย)
+- พูดอ่อนโยน ช้าๆ ชัดๆ ประโยคสั้น เข้าใจง่าย ไม่ใช้ศัพท์ยาก
+- ใส่ใจเป็นพิเศษ: ความดัน เบาหวาน หัวใจ ข้อเข่า การหกล้ม ยาประจำ
+- ย้ำเสมอว่าถ้ามีอะไรแปลกๆ ให้พบหมอ
+- ลงท้ายอบอุ่น เช่น "ดูแลตัวเองด้วยนะคะ"`,
+  },
+  strict: {
+    id: 'strict',
+    label: 'โค้ชสายแข็ง',
+    sub: 'พูดตรง ไม่ปลอบ',
+    icon: '💪',
+    desc: 'ดุ ตรง พูดความจริง เหมาะคนอยากเปลี่ยน',
+    prompt: `คุณคือ "โค้ชไกด์" โค้ชสุขภาพสายดุ ตรงไปตรงมา
+- เรียกตัวเองว่า "โค้ช" เรียกผู้ใช้ว่า "นาย/เธอ" (ตามเพศ)
+- พูดตรง ไม่อ้อมค้อม ไม่ปลอบ ไม่หวานเลี่ยน
+- ชี้ปัญหาแบบโจ๋งครึ่ม แต่ไม่ดูถูก เน้น actionable
+- กระตุ้นให้ลงมือทำ ไม่ผัดวันประกันพรุ่ง
+- ห้ามใช้ emoji หรือคำน่ารัก`,
+  },
+};
+
+// Map age → personality id
+function pickPersonalityByAge(age) {
+  if (!age || isNaN(age)) return 'default';
+  if (age < 13) return 'kid';
+  if (age < 20) return 'teen';
+  if (age < 45) return 'default';
+  if (age < 60) return 'formal';
+  return 'grandkid';
+}
+
+// Resolve which personality to actually use (handle 'auto')
+function resolvePersonality(personalityId, age) {
+  if (!personalityId || personalityId === 'auto') {
+    return PERSONALITIES[pickPersonalityByAge(age)];
+  }
+  return PERSONALITIES[personalityId] || PERSONALITIES.default;
+}
+
+
+/* ============================================================
+   Brand Logo (custom SVG mark)
+   ============================================================ */
+
+function LogoMark({ size = 44 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <defs>
+        <linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={PALETTE.sage} />
+          <stop offset="100%" stopColor={PALETTE.sageDeep} />
+        </linearGradient>
+      </defs>
+      <circle cx="32" cy="32" r="30" fill="url(#lg1)" />
+      <path d="M22 26 Q32 14 42 26 L42 40 Q32 50 22 40 Z" fill={PALETTE.cream} opacity="0.95" />
+      <circle cx="27" cy="32" r="2.2" fill={PALETTE.sageDeep} />
+      <circle cx="37" cy="32" r="2.2" fill={PALETTE.sageDeep} />
+      <path d="M27 38 Q32 41 37 38" stroke={PALETTE.sageDeep} strokeWidth="1.8" strokeLinecap="round" fill="none" />
+      <circle cx="48" cy="18" r="3" fill={PALETTE.coral} />
+    </svg>
+  );
+}
+
+/* ============================================================
+   Onboarding
+   ============================================================ */
+
+function Onboarding({ onDone }) {
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('female');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+  const [foodAllergy, setFoodAllergy] = useState([]);
+  const [drugAllergy, setDrugAllergy] = useState([]);
+  const [fInput, setFInput] = useState('');
+  const [dInput, setDInput] = useState('');
+
+  const nextDisabled = () => {
+    if (step === 1) return !name.trim();
+    if (step === 2) return !age || !height || !weight;
+    return false;
+  };
+
+  const submit = () => {
+    onDone({
+      name: name.trim() || 'พี่',
+      age: +age,
+      gender,
+      height: +height,
+      weight: +weight,
+      foodAllergy,
+      drugAllergy,
+      createdAt: Date.now(),
+    });
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: PALETTE.cream }}>
+      <div className="grain-bg absolute inset-0 pointer-events-none" />
+
+      {/* progress */}
+      <div className="px-6 pt-6 flex items-center gap-2 relative z-10">
+        {[0, 1, 2, 3].map((s) => (
+          <div
+            key={s}
+            className="h-1.5 flex-1 rounded-full transition-all duration-500"
+            style={{ backgroundColor: s <= step ? PALETTE.sage : PALETTE.mist }}
+          />
+        ))}
+      </div>
+
+      <div className="flex-1 flex items-center justify-center px-6 py-8 relative z-10">
+        <div className="w-full max-w-md">
+
+          {step === 0 && (
+            <div className="text-center anim-slideUp">
+              <div className="anim-float inline-block mb-6">
+                <LogoMark size={96} />
+              </div>
+              <h1 className="font-display text-5xl font-bold mb-3" style={{ color: PALETTE.sageDeep }}>
+                GINYARAIDEE
+              </h1>
+              <div className="font-accent text-lg mb-1" style={{ color: PALETTE.gold }}>
+                กินยาไรดี
+              </div>
+              <p className="font-body text-base mb-10" style={{ color: PALETTE.muted }}>
+                เพื่อนสุขภาพใจดี<br />ที่อยู่ข้างพี่ทุกวัน
+              </p>
+              <button
+                onClick={() => setStep(1)}
+                className="smooth-tap font-display font-semibold w-full py-4 rounded-2xl text-white text-base deep-shadow"
+                style={{ backgroundColor: PALETTE.sageDark }}
+              >
+                เริ่มกันเลย
+              </button>
+              <p className="font-body text-xs mt-6 leading-relaxed" style={{ color: PALETTE.muted }}>
+                * แอปนี้ให้คำแนะนำเบื้องต้นเท่านั้น<br />ไม่ทดแทนการวินิจฉัยโดยแพทย์
+              </p>
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="anim-slideUp">
+              <div className="font-accent text-sm mb-2" style={{ color: PALETTE.gold }}>STEP 01</div>
+              <h2 className="font-display text-3xl font-bold mb-2" style={{ color: PALETTE.sageDeep }}>
+                ขอเรียกพี่ว่าอะไรดี?
+              </h2>
+              <p className="font-body text-sm mb-8" style={{ color: PALETTE.muted }}>
+                หนูอยากเรียกชื่อพี่ให้ถูกต้องเลยค่ะ
+              </p>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="ชื่อเล่นก็ได้นะ"
+                className="font-body w-full px-5 py-4 rounded-2xl text-lg organic-shadow"
+                style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
+                autoFocus
+              />
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="anim-slideUp">
+              <div className="font-accent text-sm mb-2" style={{ color: PALETTE.gold }}>STEP 02</div>
+              <h2 className="font-display text-3xl font-bold mb-2" style={{ color: PALETTE.sageDeep }}>
+                ขอข้อมูลพื้นฐาน
+              </h2>
+              <p className="font-body text-sm mb-6" style={{ color: PALETTE.muted }}>
+                เพื่อคำนวณแคลและคำแนะนำที่เหมาะกับพี่
+              </p>
+
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <button
+                  onClick={() => setGender('female')}
+                  className={`smooth-tap font-display font-medium py-4 rounded-2xl border-2`}
+                  style={{
+                    backgroundColor: gender === 'female' ? PALETTE.sageDark : PALETTE.paper,
+                    color: gender === 'female' ? '#fff' : PALETTE.forest,
+                    borderColor: gender === 'female' ? PALETTE.sageDark : PALETTE.mist,
+                  }}
+                >
+                  หญิง
+                </button>
+                <button
+                  onClick={() => setGender('male')}
+                  className={`smooth-tap font-display font-medium py-4 rounded-2xl border-2`}
+                  style={{
+                    backgroundColor: gender === 'male' ? PALETTE.sageDark : PALETTE.paper,
+                    color: gender === 'male' ? '#fff' : PALETTE.forest,
+                    borderColor: gender === 'male' ? PALETTE.sageDark : PALETTE.mist,
+                  }}
+                >
+                  ชาย
+                </button>
+              </div>
+
+              <input
+                value={age}
+                onChange={(e) => setAge(e.target.value.replace(/\D/g, ''))}
+                placeholder="อายุ (ปี)"
+                inputMode="numeric"
+                className="font-body w-full px-5 py-4 rounded-2xl text-base mb-3"
+                style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  value={height}
+                  onChange={(e) => setHeight(e.target.value.replace(/[^\d.]/g, ''))}
+                  placeholder="สูง (ซม.)"
+                  inputMode="decimal"
+                  className="font-body w-full px-5 py-4 rounded-2xl text-base"
+                  style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
+                />
+                <input
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value.replace(/[^\d.]/g, ''))}
+                  placeholder="หนัก (กก.)"
+                  inputMode="decimal"
+                  className="font-body w-full px-5 py-4 rounded-2xl text-base"
+                  style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="anim-slideUp">
+              <div className="font-accent text-sm mb-2" style={{ color: PALETTE.gold }}>STEP 03</div>
+              <h2 className="font-display text-3xl font-bold mb-2" style={{ color: PALETTE.sageDeep }}>
+                สิ่งที่พี่แพ้
+              </h2>
+              <p className="font-body text-sm mb-6" style={{ color: PALETTE.muted }}>
+                สำคัญมาก หนูจะได้เตือนพี่ทันที (ถ้าไม่มี ข้ามได้เลย)
+              </p>
+
+              <AllergySection
+                label="แพ้อาหาร"
+                icon={<Apple size={16} />}
+                items={foodAllergy}
+                setItems={setFoodAllergy}
+                input={fInput}
+                setInput={setFInput}
+                placeholder="เช่น กุ้ง, นม, ถั่ว..."
+              />
+              <div className="h-4" />
+              <AllergySection
+                label="แพ้ยา"
+                icon={<Pill size={16} />}
+                items={drugAllergy}
+                setItems={setDrugAllergy}
+                input={dInput}
+                setInput={setDInput}
+                placeholder="เช่น พาราเซตามอล, ยาแก้ปวด..."
+              />
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      {/* nav buttons */}
+      <div className="px-6 pb-8 relative z-10">
+        <div className="max-w-md mx-auto flex items-center gap-3">
+          {step > 0 && step < 4 && (
+            <button
+              onClick={() => setStep(s => Math.max(0, s - 1))}
+              className="smooth-tap font-display font-medium px-5 py-4 rounded-2xl"
+              style={{ backgroundColor: PALETTE.paper, color: PALETTE.forest, border: `1px solid ${PALETTE.mist}` }}
+            >
+              <ArrowLeft size={20} />
+            </button>
+          )}
+          {step > 0 && (
+            <button
+              onClick={() => step === 3 ? submit() : setStep(s => s + 1)}
+              disabled={nextDisabled()}
+              className="smooth-tap font-display font-semibold flex-1 py-4 rounded-2xl text-white text-base flex items-center justify-center gap-2 deep-shadow disabled:opacity-40"
+              style={{ backgroundColor: PALETTE.sageDark }}
+            >
+              {step === 3 ? 'เริ่มใช้แอป' : 'ต่อไป'}
+              <ChevronRight size={20} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AllergySection({ label, icon, items, setItems, input, setInput, placeholder }) {
   const add = () => {
     const v = input.trim();
