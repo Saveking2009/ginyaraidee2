@@ -7,7 +7,7 @@ import {
   Leaf, AlertTriangle, Phone, RotateCcw, Pencil, BarChart3, TrendingUp,
   TrendingDown, Calendar, ScanLine, Newspaper, GlassWater, Moon, Dumbbell,
   Stethoscope, Bell, Printer, MoreHorizontal, Minus, FileText, Zap,
-  ExternalLink, Clock
+  ExternalLink, Clock, Volume2, VolumeX
 } from 'lucide-react';
 
 /* ============================================================
@@ -1978,9 +1978,52 @@ function ChatScreen({ profile, messages, addMessage, clearMessages, personality 
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(() => load('gyn_voice', false));
+  const [speakingIdx, setSpeakingIdx] = useState(null);
   const scrollRef = useRef(null);
 
   const persona = resolvePersonality(personality, profile.age);
+
+  const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+  const speak = (text, idx) => {
+    if (!ttsSupported) return;
+    window.speechSynthesis.cancel();
+    if (speakingIdx === idx) { setSpeakingIdx(null); return; }
+    const u = new SpeechSynthesisUtterance(text.replace(/[🌿✨💛🌟⭐🎉🙏🚑👋😊💪🧸🤝🌷👔]/g, ''));
+    u.lang = 'th-TH';
+    u.rate = 1.0;
+    u.pitch = 1.05;
+    // Try to pick a Thai voice
+    const voices = window.speechSynthesis.getVoices();
+    const thai = voices.find(v => v.lang === 'th-TH' || v.lang.startsWith('th'));
+    if (thai) u.voice = thai;
+    u.onend = () => setSpeakingIdx(null);
+    u.onerror = () => setSpeakingIdx(null);
+    setSpeakingIdx(idx);
+    window.speechSynthesis.speak(u);
+  };
+
+  const toggleVoice = () => {
+    const next = !voiceOn;
+    setVoiceOn(next);
+    save('gyn_voice', next);
+    if (!next) { window.speechSynthesis?.cancel(); setSpeakingIdx(null); }
+  };
+
+  // Auto-speak the latest assistant message when voice is on
+  useEffect(() => {
+    if (!voiceOn || !ttsSupported) return;
+    const last = messages[messages.length - 1];
+    if (last && last.role === 'assistant' && !last._spoken) {
+      last._spoken = true;
+      speak(last.content, messages.length - 1);
+    }
+  }, [messages.length]);
+
+  useEffect(() => {
+    return () => { window.speechSynthesis?.cancel(); };
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -2063,6 +2106,18 @@ function ChatScreen({ profile, messages, addMessage, clearMessages, personality 
             {persona.sub} · พร้อมคุย
           </div>
         </div>
+        {ttsSupported && (
+          <button className="smooth-tap w-9 h-9 rounded-full flex items-center justify-center"
+            style={{
+              backgroundColor: voiceOn ? PALETTE.sage : PALETTE.shell,
+              color: voiceOn ? 'white' : PALETTE.sageDark,
+            }}
+            title={voiceOn ? 'ปิดเสียงพูด' : 'เปิดเสียงพูด'}
+            onClick={toggleVoice}
+          >
+            {voiceOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
+          </button>
+        )}
         <button className="smooth-tap w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40"
           style={{ backgroundColor: PALETTE.shell, color: PALETTE.sageDark }}
           title="เริ่มแชทใหม่"
@@ -2132,6 +2187,15 @@ function ChatScreen({ profile, messages, addMessage, clearMessages, personality 
               }}
             >
               <div className="font-body text-sm leading-relaxed whitespace-pre-wrap">{m.content}</div>
+              {m.role === 'assistant' && ttsSupported && (
+                <button onClick={() => speak(m.content, i)}
+                  className="smooth-tap mt-1.5 flex items-center gap-1 font-body text-tiny"
+                  style={{ color: speakingIdx === i ? PALETTE.sage : PALETTE.muted }}
+                >
+                  {speakingIdx === i ? <Volume2 size={12} /> : <Volume2 size={12} />}
+                  {speakingIdx === i ? 'กำลังพูด...' : 'ฟังเสียง'}
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -2870,8 +2934,101 @@ function ProfileStat({ label, value, unit, hidden }) {
    Health Hub — น้ำ / นอน / ออกกำลังกาย / ความดัน
    ============================================================ */
 
+/* ============================================================
+   Mini Line Chart (SVG) — reusable
+   ============================================================ */
+
+function MiniLineChart({ points, color, unit = '', height = 140, target = null, targetLabel = '' }) {
+  // points: [{ label, value }]
+  if (!points || points.length === 0) {
+    return (
+      <div className="rounded-2xl p-8 text-center" style={{ backgroundColor: PALETTE.shell }}>
+        <BarChart3 size={28} className="mx-auto mb-2" color={PALETTE.mist} />
+        <div className="font-body text-sm" style={{ color: PALETTE.muted }}>ยังไม่มีข้อมูล</div>
+      </div>
+    );
+  }
+
+  const W = 320, H = height, padL = 36, padR = 12, padT = 16, padB = 28;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  const vals = points.map(p => p.value);
+  let min = Math.min(...vals, target != null ? target : Infinity);
+  let max = Math.max(...vals, target != null ? target : -Infinity);
+  if (min === max) { min -= 1; max += 1; }
+  const range = max - min;
+  min = min - range * 0.1;
+  max = max + range * 0.1;
+
+  const x = (i) => padL + (points.length === 1 ? innerW / 2 : (i / (points.length - 1)) * innerW);
+  const y = (v) => padT + innerH - ((v - min) / (max - min)) * innerH;
+
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(p.value).toFixed(1)}`).join(' ');
+  const areaPath = `${linePath} L ${x(points.length - 1).toFixed(1)} ${(padT + innerH).toFixed(1)} L ${x(0).toFixed(1)} ${(padT + innerH).toFixed(1)} Z`;
+
+  // Y axis labels (3 ticks)
+  const ticks = [min, (min + max) / 2, max];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }}>
+      <defs>
+        <linearGradient id={`grad-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {/* Grid + Y labels */}
+      {ticks.map((t, i) => {
+        const yy = y(t);
+        return (
+          <g key={i}>
+            <line x1={padL} y1={yy} x2={W - padR} y2={yy} stroke={PALETTE.mist} strokeWidth="1" strokeDasharray="2 3" />
+            <text x={padL - 6} y={yy + 3} textAnchor="end" fontSize="9" fill={PALETTE.muted} fontFamily="monospace">
+              {Math.round(t)}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Target line */}
+      {target != null && (
+        <g>
+          <line x1={padL} y1={y(target)} x2={W - padR} y2={y(target)}
+            stroke={PALETTE.coral} strokeWidth="1.5" strokeDasharray="4 3" opacity="0.6" />
+        </g>
+      )}
+
+      {/* Area + line */}
+      <path d={areaPath} fill={`url(#grad-${color.replace('#', '')})`} />
+      <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+
+      {/* Dots + last value */}
+      {points.map((p, i) => (
+        <circle key={i} cx={x(i)} cy={y(p.value)} r={i === points.length - 1 ? 4 : 2.5}
+          fill={i === points.length - 1 ? color : PALETTE.paper} stroke={color} strokeWidth="2" />
+      ))}
+
+      {/* X labels (first, middle, last) */}
+      {points.length > 0 && [0, Math.floor((points.length - 1) / 2), points.length - 1]
+        .filter((v, idx, arr) => arr.indexOf(v) === idx)
+        .map((idx) => (
+          <text key={idx} x={x(idx)} y={H - 8} textAnchor="middle" fontSize="9" fill={PALETTE.muted}>
+            {points[idx].label}
+          </text>
+        ))}
+    </svg>
+  );
+}
+
+/* ============================================================
+   Health Hub — น้ำ / นอน / ออกกำลังกาย / ความดัน / แนวโน้ม
+   ============================================================ */
+
 function HealthHub({ profile, water, addWater, removeWater, sleep, addSleep, removeSleep,
-  exercises, addExercise, removeExercise, vitals, addVital, removeVital }) {
+  exercises, addExercise, removeExercise, vitals, addVital, removeVital,
+  weights, addWeight, removeWeight }) {
   const today = todayKey();
   const target = waterTargetMl(profile.weight);
   const todayWater = water.filter(w => w.day === today).reduce((s, w) => s + (w.ml || 0), 0);
@@ -2955,13 +3112,150 @@ function HealthHub({ profile, water, addWater, removeWater, sleep, addSleep, rem
           </button>
         </div>
 
+        {/* Trends button */}
+        <button onClick={() => setTab('trends')}
+          className="smooth-tap w-full rounded-2xl p-3 mb-5 flex items-center gap-3 organic-shadow"
+          style={{ backgroundColor: tab === 'trends' ? PALETTE.sageDeep : PALETTE.paper, color: tab === 'trends' ? 'white' : PALETTE.forest }}
+        >
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: tab === 'trends' ? 'rgba(255,255,255,0.15)' : PALETTE.shell, color: tab === 'trends' ? PALETTE.gold : PALETTE.sageDark }}
+          >
+            <TrendingUp size={18} />
+          </div>
+          <div className="flex-1 text-left">
+            <div className="font-display font-semibold text-sm">กราฟแนวโน้ม</div>
+            <div className="font-body text-xs opacity-70">น้ำหนัก · น้ำ · ออกกำลัง · นอน · ความดัน</div>
+          </div>
+          <ChevronRight size={18} style={{ opacity: 0.6 }} />
+        </button>
+
         {/* Tab content */}
         <div className="anim-fadeIn" key={tab}>
           {tab === 'water' && <WaterTab profile={profile} water={water} addWater={addWater} removeWater={removeWater} target={target} todayWater={todayWater} />}
           {tab === 'exercise' && <ExerciseTab profile={profile} exercises={exercises} addExercise={addExercise} removeExercise={removeExercise} />}
           {tab === 'sleep' && <SleepTab sleep={sleep} addSleep={addSleep} removeSleep={removeSleep} />}
           {tab === 'vitals' && <VitalsTab vitals={vitals} addVital={addVital} removeVital={removeVital} />}
+          {tab === 'trends' && <TrendsTab profile={profile} water={water} exercises={exercises} sleep={sleep} vitals={vitals} weights={weights} addWeight={addWeight} removeWeight={removeWeight} />}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function TrendsTab({ profile, water, exercises, sleep, vitals, weights, addWeight, removeWeight }) {
+  const [newWeight, setNewWeight] = useState('');
+
+  // Weight chart
+  const weightPoints = (weights || []).slice(-14).map(w => ({
+    label: w.day.slice(5),
+    value: w.kg,
+  }));
+
+  // Water — last 14 days totals
+  const waterDays = lastNDaysKeys(14);
+  const waterByDay = {};
+  water.forEach(w => { waterByDay[w.day] = (waterByDay[w.day] || 0) + (w.ml || 0); });
+  const waterPoints = waterDays.map(d => ({ label: d.slice(5), value: waterByDay[d] || 0 }));
+  const hasWater = waterPoints.some(p => p.value > 0);
+
+  // Exercise — last 14 days kcal burned
+  const exDays = lastNDaysKeys(14);
+  const exByDay = {};
+  exercises.forEach(e => { exByDay[e.day] = (exByDay[e.day] || 0) + (e.calories || 0); });
+  const exPoints = exDays.map(d => ({ label: d.slice(5), value: exByDay[d] || 0 }));
+  const hasEx = exPoints.some(p => p.value > 0);
+
+  // Sleep — last 14 entries
+  const sleepPoints = (sleep || []).slice(-14).map(s => ({ label: s.day.slice(5), value: s.hours }));
+
+  // BP — last 14 entries (SBP)
+  const bpEntries = (vitals || []).filter(v => v.kind === 'bp').slice(-14);
+  const sbpPoints = bpEntries.map(v => ({ label: v.day.slice(5), value: v.sbp }));
+  const dbpPoints = bpEntries.map(v => ({ label: v.day.slice(5), value: v.dbp }));
+
+  // Sugar — last 14 entries
+  const sugarPoints = (vitals || []).filter(v => v.kind === 'sugar').slice(-14).map(v => ({ label: v.day.slice(5), value: v.sugar }));
+
+  const saveWeight = () => {
+    const kg = parseFloat(newWeight);
+    if (!kg || kg <= 0) return;
+    addWeight({ id: 'wt' + Date.now(), day: todayKey(), kg });
+    setNewWeight('');
+  };
+
+  const Card = ({ title, icon, color, children }) => (
+    <div className="rounded-2xl p-4 mb-4 organic-shadow" style={{ backgroundColor: PALETTE.paper }}>
+      <div className="font-display font-semibold text-sm mb-3 flex items-center gap-2" style={{ color: PALETTE.sageDeep }}>
+        <span style={{ color }}>{icon}</span> {title}
+      </div>
+      {children}
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Weight tracking with input */}
+      <Card title="น้ำหนัก (กก.)" icon={<Activity size={16} />} color={PALETTE.sage}>
+        <div className="flex gap-2 mb-3">
+          <input value={newWeight} onChange={e => setNewWeight(e.target.value.replace(/[^\d.]/g, ''))}
+            placeholder={`บันทึกน้ำหนักวันนี้ (${profile.weight} กก.)`}
+            inputMode="decimal"
+            className="font-body flex-1 px-4 py-2.5 rounded-xl text-sm"
+            style={{ backgroundColor: PALETTE.shell, color: PALETTE.forest, border: 'none' }}
+          />
+          <button onClick={saveWeight}
+            className="smooth-tap px-4 rounded-xl font-display font-semibold text-white text-sm"
+            style={{ backgroundColor: PALETTE.sageDark }}
+          >บันทึก</button>
+        </div>
+        <MiniLineChart points={weightPoints} color={PALETTE.sage} unit="กก." />
+        {weightPoints.length >= 2 && (
+          <div className="font-body text-xs mt-2 text-center" style={{ color: PALETTE.muted }}>
+            {(() => {
+              const diff = weightPoints[weightPoints.length - 1].value - weightPoints[0].value;
+              return diff === 0 ? 'น้ำหนักคงที่'
+                : diff < 0 ? `ลดลง ${Math.abs(diff).toFixed(1)} กก. 🎉`
+                : `เพิ่มขึ้น ${diff.toFixed(1)} กก.`;
+            })()}
+          </div>
+        )}
+      </Card>
+
+      <Card title="น้ำดื่ม 14 วัน (ml)" icon={<GlassWater size={16} />} color="#6BA4D9">
+        {hasWater ? <MiniLineChart points={waterPoints} color="#6BA4D9" target={waterTargetMl(profile.weight)} /> :
+          <div className="font-body text-xs text-center py-4" style={{ color: PALETTE.muted }}>ยังไม่มีข้อมูลน้ำดื่ม</div>}
+      </Card>
+
+      <Card title="แคลที่เผาผลาญ 14 วัน" icon={<Dumbbell size={16} />} color={PALETTE.coral}>
+        {hasEx ? <MiniLineChart points={exPoints} color={PALETTE.coral} unit="kcal" /> :
+          <div className="font-body text-xs text-center py-4" style={{ color: PALETTE.muted }}>ยังไม่มีข้อมูลออกกำลังกาย</div>}
+      </Card>
+
+      <Card title="ชั่วโมงการนอน" icon={<Moon size={16} />} color="#6F58B8">
+        {sleepPoints.length > 0 ? <MiniLineChart points={sleepPoints} color="#6F58B8" unit="ชม." target={8} /> :
+          <div className="font-body text-xs text-center py-4" style={{ color: PALETTE.muted }}>ยังไม่มีข้อมูลการนอน</div>}
+      </Card>
+
+      {sbpPoints.length > 0 && (
+        <Card title="ความดัน (SBP / DBP)" icon={<Stethoscope size={16} />} color={PALETTE.coral}>
+          <div className="font-accent text-tiny mb-1" style={{ color: PALETTE.coral }}>ตัวบน (SBP)</div>
+          <MiniLineChart points={sbpPoints} color={PALETTE.coral} target={120} />
+          <div className="font-accent text-tiny mb-1 mt-3" style={{ color: '#6BA4D9' }}>ตัวล่าง (DBP)</div>
+          <MiniLineChart points={dbpPoints} color="#6BA4D9" target={80} />
+        </Card>
+      )}
+
+      {sugarPoints.length > 0 && (
+        <Card title="น้ำตาลในเลือด (mg/dL)" icon={<Droplet size={16} />} color={PALETTE.gold}>
+          <MiniLineChart points={sugarPoints} color={PALETTE.gold} target={100} />
+        </Card>
+      )}
+
+      <div className="rounded-2xl p-3 flex items-start gap-2" style={{ backgroundColor: PALETTE.shell }}>
+        <AlertCircle size={14} color={PALETTE.sageDark} className="flex-shrink-0 mt-0.5" />
+        <p className="font-body text-tiny leading-relaxed" style={{ color: PALETTE.sageDark }}>
+          เส้นประสีส้ม = ค่าเป้าหมาย/มาตรฐาน · กราฟแสดงข้อมูล 14 ครั้งล่าสุด
+        </p>
       </div>
     </div>
   );
@@ -4190,6 +4484,7 @@ export default function App() {
   const [sleep, _setSleep] = useState(() => load('gyn_sleep', []));
   const [vitals, _setVitals] = useState(() => load('gyn_vitals', []));
   const [corrections, _setCorrections] = useState(() => load('gyn_corrections', []));
+  const [weights, _setWeights] = useState(() => load('gyn_weights', []));
   const [modalOpen, setModalOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
@@ -4256,6 +4551,7 @@ export default function App() {
     _setCorrections(trimmed);
     save('gyn_corrections', trimmed);
   };
+  const setWeights = (v) => { _setWeights(v); save('gyn_weights', v); };
 
   useEffect(() => {
     document.body.style.backgroundColor = PALETTE.cream;
@@ -4275,9 +4571,9 @@ export default function App() {
 
   const reset = () => {
     ['gyn_profile','gyn_foodlog','gyn_chat','gyn_meds','gyn_privacy','gyn_persona',
-     'gyn_water','gyn_exercises','gyn_sleep','gyn_vitals','gyn_news','gyn_corrections'].forEach(k => localStorage.removeItem(k));
+     'gyn_water','gyn_exercises','gyn_sleep','gyn_vitals','gyn_news','gyn_corrections','gyn_weights'].forEach(k => localStorage.removeItem(k));
     _setProfile(null); _setFoodLog([]); _setChat([]); _setMeds([]);
-    _setWater([]); _setExercises([]); _setSleep([]); _setVitals([]); _setCorrections([]);
+    _setWater([]); _setExercises([]); _setSleep([]); _setVitals([]); _setCorrections([]); _setWeights([]);
     _setPrivacy({ showHeight: true, showWeight: true, showAge: true, showAllergies: false });
     _setPersonality('auto');
     setScreen('home');
@@ -4315,6 +4611,9 @@ export default function App() {
               vitals={vitals}
               addVital={(v) => setVitals([...vitals, v])}
               removeVital={(id) => setVitals(vitals.filter(x => x.id !== id))}
+              weights={weights}
+              addWeight={(w) => setWeights([...weights, w])}
+              removeWeight={(id) => setWeights(weights.filter(x => x.id !== id))}
             />
           )}
           {screen === 'food' && (
