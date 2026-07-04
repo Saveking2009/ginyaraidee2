@@ -1,14 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { PALETTE } from '../theme';
 
 /* ============================================================
    Intro Splash — วิดีโอเปิดตัวตอนเข้าแอป
-   - เล่นอัตโนมัติ (mute ตามกติกา browser) จบแล้ว fade เข้าแอป
-   - มีปุ่ม "ข้าม" เสมอ + กันค้าง: ถ้าวิดีโอโหลด/เล่นไม่ได้ ข้ามให้เอง
+   - วิดีโอหลักแสดงเต็มใบตรงกลาง (ไม่ซูมครอป) มุมโค้งสวยๆ
+   - พื้นหลังเป็นวิดีโอเดียวกันแบบเบลอ ถมเต็มจอ ไม่มีแถบดำ
+   - เล่นอัตโนมัติ จบแล้ว fade เข้าแอป + มีปุ่ม "ข้าม" เสมอ
+   - กันค้าง: เล่นไม่ได้/โหลดช้าเกิน 9 วิ → เข้าแอปเอง
    ============================================================ */
 
 export default function IntroSplash({ onDone }) {
   const videoRef = useRef(null);
+  const bgRef = useRef(null);
   const [fading, setFading] = useState(false);
   const doneRef = useRef(false);
 
@@ -21,6 +23,9 @@ export default function IntroSplash({ onDone }) {
 
   useEffect(() => {
     const v = videoRef.current;
+    // พื้นหลังเบลอ — เล่นได้ก็ดี เล่นไม่ได้ก็ช่าง
+    bgRef.current?.play?.()?.catch?.(() => {});
+
     let retried = false;
     const tryPlay = () => {
       const p = v?.play();
@@ -41,7 +46,7 @@ export default function IntroSplash({ onDone }) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center"
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden"
       style={{
         backgroundColor: '#0B1F33',
         opacity: fading ? 0 : 1,
@@ -49,17 +54,41 @@ export default function IntroSplash({ onDone }) {
         pointerEvents: fading ? 'none' : 'auto',
       }}
     >
+      {/* พื้นหลัง: วิดีโอเดียวกัน เบลอ+ขยาย ถมเต็มจอ */}
       <video
-        ref={videoRef}
+        ref={bgRef}
         src="/intro.mp4"
         autoPlay
         muted
         playsInline
         preload="auto"
-        onEnded={finish}
-        onError={finish}
-        className="w-full h-full object-cover"
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ filter: 'blur(32px) brightness(0.55)', transform: 'scale(1.2)' }}
       />
+
+      {/* วิดีโอหลัก: การ์ดสี่เหลี่ยมมุมโค้ง เห็นเต็มใบ ไม่โดนครอป */}
+      <div className="relative overflow-hidden"
+        style={{
+          width: 'min(88vw, 72vh)',
+          aspectRatio: '1 / 1',
+          borderRadius: 28,
+          boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
+        }}
+      >
+        <video
+          ref={videoRef}
+          src="/intro.mp4"
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          onEnded={finish}
+          onError={finish}
+          className="w-full h-full object-cover"
+        />
+      </div>
+
       <button onClick={finish}
         className="smooth-tap absolute font-display text-sm font-medium px-5 py-2.5 rounded-full"
         style={{
