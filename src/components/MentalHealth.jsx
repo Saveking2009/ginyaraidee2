@@ -84,7 +84,7 @@ ${answersText}
         {step === 0 && (
           <div className="anim-slideUp">
             <div className="rounded-3xl p-6 mb-4 deep-shadow relative overflow-hidden"
-              style={{ backgroundColor: PALETTE.sageDeep }}
+              style={{ backgroundColor: PALETTE.deep }}
             >
               <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full opacity-20"
                 style={{ backgroundColor: PALETTE.coral }} />

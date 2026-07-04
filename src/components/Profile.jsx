@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   User, Activity, AlertCircle, Shield, EyeOff, Sparkles, Check,
-  ExternalLink, Plus, Trash2,
+  ExternalLink, Plus, Trash2, Sun, Moon, MonitorSmartphone,
 } from 'lucide-react';
-import { PALETTE } from '../theme';
+import { PALETTE, alpha } from '../theme';
 import { calcBMI, bmiCategory, exportMemory, handleImportMemory } from '../utils';
 import { PERSONALITIES, resolvePersonality } from '../data/personalities';
 import LogoMark from './LogoMark';
 
-export default function Profile({ profile, privacy, setPrivacy, setProfile, reset, onModalChange, personality, setPersonality, corrections, clearCorrections, addCorrection }) {
+export default function Profile({ profile, privacy, setPrivacy, setProfile, reset, onModalChange, personality, setPersonality, corrections, clearCorrections, addCorrection, theme, setTheme }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(profile);
   const bmi = calcBMI(profile.weight, profile.height);
@@ -50,13 +50,13 @@ export default function Profile({ profile, privacy, setPrivacy, setProfile, rese
 
         {/* Profile card */}
         <div className="rounded-3xl p-6 mb-4 deep-shadow relative overflow-hidden anim-slideUp"
-          style={{ backgroundColor: PALETTE.sageDeep }}
+          style={{ backgroundColor: PALETTE.deep }}
         >
           <div className="absolute -right-12 -bottom-12 w-44 h-44 rounded-full opacity-15"
             style={{ backgroundColor: PALETTE.gold }} />
           <div className="relative flex items-center gap-4 mb-5">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-display font-bold"
-              style={{ backgroundColor: PALETTE.gold, color: PALETTE.sageDeep }}
+              style={{ backgroundColor: PALETTE.gold, color: PALETTE.deep }}
             >
               {profile.name?.[0]?.toUpperCase() || '?'}
             </div>
@@ -131,6 +131,41 @@ export default function Profile({ profile, privacy, setPrivacy, setProfile, rese
           )}
         </div>
 
+        {/* Theme picker — โหมดสว่าง/มืด */}
+        <div className="rounded-2xl p-4 mb-4 organic-shadow anim-slideUp delay-1"
+          style={{ backgroundColor: PALETTE.paper }}
+        >
+          <div className="font-display font-semibold mb-1 flex items-center gap-2"
+            style={{ color: PALETTE.sageDeep }}
+          >
+            <Moon size={16} color={PALETTE.gold} /> ธีมหน้าจอ
+          </div>
+          <p className="font-body text-xs mb-3" style={{ color: PALETTE.muted }}>
+            โหมดมืดถนอมสายตาตอนกลางคืน
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: 'light', label: 'สว่าง', icon: <Sun size={18} /> },
+              { id: 'dark', label: 'มืด', icon: <Moon size={18} /> },
+              { id: 'auto', label: 'ตามระบบ', icon: <MonitorSmartphone size={18} /> },
+            ].map(t => {
+              const active = (theme || 'auto') === t.id;
+              return (
+                <button key={t.id} onClick={() => setTheme?.(t.id)}
+                  className="smooth-tap rounded-xl py-3 flex flex-col items-center gap-1.5"
+                  style={{
+                    backgroundColor: active ? PALETTE.deep : PALETTE.shell,
+                    color: active ? 'white' : PALETTE.forest,
+                  }}
+                >
+                  {t.icon}
+                  <span className="font-display text-xs font-medium">{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Privacy toggles */}
         <div className="rounded-2xl p-4 mb-4 organic-shadow anim-slideUp delay-2"
           style={{ backgroundColor: PALETTE.paper }}
@@ -186,7 +221,7 @@ export default function Profile({ profile, privacy, setPrivacy, setProfile, rese
                   onClick={() => setPersonality(p.id)}
                   className="smooth-tap w-full text-left rounded-xl p-3 flex items-center gap-3"
                   style={{
-                    backgroundColor: isSelected ? PALETTE.sageDeep : PALETTE.shell,
+                    backgroundColor: isSelected ? PALETTE.deep : PALETTE.shell,
                     color: isSelected ? 'white' : PALETTE.forest,
                   }}
                 >
@@ -196,7 +231,7 @@ export default function Profile({ profile, privacy, setPrivacy, setProfile, rese
                       {p.label}
                       {showResolved && resolved && (
                         <span className="font-body text-tiny px-1.5 py-0.5 rounded-md"
-                          style={{ backgroundColor: PALETTE.gold, color: PALETTE.sageDeep }}
+                          style={{ backgroundColor: PALETTE.gold, color: PALETTE.deep }}
                         >
                           → {resolved.label}
                         </span>
@@ -223,7 +258,7 @@ export default function Profile({ profile, privacy, setPrivacy, setProfile, rese
             </div>
             {corrections && corrections.length > 0 && (
               <span className="font-display text-tiny font-semibold px-2 py-0.5 rounded-md"
-                style={{ backgroundColor: PALETTE.sage + '22', color: PALETTE.sageDark }}
+                style={{ backgroundColor: alpha(PALETTE.sage, 15), color: PALETTE.sageDark }}
               >
                 {corrections.length} ครั้ง
               </span>
@@ -254,13 +289,13 @@ export default function Profile({ profile, privacy, setPrivacy, setProfile, rese
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => exportMemory(corrections)}
                   className="smooth-tap font-body text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5"
-                  style={{ backgroundColor: PALETTE.sage + '22', color: PALETTE.sageDark }}
+                  style={{ backgroundColor: alpha(PALETTE.sage, 15), color: PALETTE.sageDark }}
                 >
                   <ExternalLink size={12} /> Export ความจำ
                 </button>
                 <button onClick={() => importMemoryRef.current?.click()}
                   className="smooth-tap font-body text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5"
-                  style={{ backgroundColor: PALETTE.gold + '22', color: PALETTE.gold }}
+                  style={{ backgroundColor: alpha(PALETTE.gold, 15), color: PALETTE.gold }}
                 >
                   <Plus size={12} /> Import
                 </button>
@@ -313,7 +348,7 @@ export default function Profile({ profile, privacy, setPrivacy, setProfile, rese
         <div className="text-center mt-6 anim-fadeIn">
           <LogoMark size={32} />
           <div className="font-display text-xs mt-2" style={{ color: PALETTE.muted }}>
-            GINYARAIDEE · v2.7
+            GINYARAIDEE · v2.8
           </div>
         </div>
       </div>

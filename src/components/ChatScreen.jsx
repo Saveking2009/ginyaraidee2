@@ -202,7 +202,7 @@ export default function ChatScreen({ profile, messages, addMessage, clearMessage
           >
             {m.role === 'assistant' && (
               <div className="w-7 h-7 rounded-full flex-shrink-0 mr-2 flex items-center justify-center"
-                style={{ backgroundColor: PALETTE.sageDeep }}
+                style={{ backgroundColor: PALETTE.deep }}
               >
                 <Heart size={12} color={PALETTE.gold} />
               </div>
@@ -233,7 +233,7 @@ export default function ChatScreen({ profile, messages, addMessage, clearMessage
         {busy && (
           <div className="flex mb-3 anim-fadeIn">
             <div className="w-7 h-7 rounded-full mr-2 flex items-center justify-center"
-              style={{ backgroundColor: PALETTE.sageDeep }}
+              style={{ backgroundColor: PALETTE.deep }}
             >
               <Heart size={12} color={PALETTE.gold} />
             </div>

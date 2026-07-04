@@ -70,7 +70,7 @@ export default function IntroSplash({ onDone }) {
       {/* วิดีโอหลัก: การ์ดสี่เหลี่ยมมุมโค้ง เห็นเต็มใบ ไม่โดนครอป */}
       <div className="relative overflow-hidden"
         style={{
-          width: 'min(88vw, 72vh)',
+          width: 'min(76vw, 56vh)',
           aspectRatio: '1 / 1',
           borderRadius: 28,
           boxShadow: '0 16px 48px rgba(0,0,0,0.5)',

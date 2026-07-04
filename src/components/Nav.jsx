@@ -4,7 +4,7 @@ import {
   UtensilsCrossed, GlassWater, Dumbbell, Moon, Stethoscope, Pill,
   Brain, Printer, User, ChevronRight, Shield, Sparkles, RotateCcw, ListChecks,
 } from 'lucide-react';
-import { PALETTE } from '../theme';
+import { PALETTE, alpha } from '../theme';
 
 /* ============================================================
    Quick Record Sheet (center + button)
@@ -45,7 +45,7 @@ export function QuickRecordSheet({ open, onClose, onChoose }) {
                 style={{ backgroundColor: PALETTE.paper }}
               >
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-2"
-                  style={{ backgroundColor: it.tone + '22', color: it.tone }}
+                  style={{ backgroundColor: alpha(it.tone, 15), color: it.tone }}
                 >
                   <I size={20} />
                 </div>
@@ -94,7 +94,7 @@ export function MoreMenu({ goto, openPrintModal }) {
                 style={{ backgroundColor: PALETTE.paper }}
               >
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: it.tone + '22', color: it.tone }}
+                  style={{ backgroundColor: alpha(it.tone, 15), color: it.tone }}
                 >
                   <I size={22} />
                 </div>
@@ -176,7 +176,7 @@ export function BottomNav({ current, onNav, onCenterTap }) {
         <button onClick={onCenterTap}
           className="smooth-tap absolute left-1/2 -translate-x-1/2 -top-2 w-16 h-16 rounded-full flex items-center justify-center deep-shadow anim-pulseGlow"
           style={{
-            backgroundColor: PALETTE.sageDeep,
+            backgroundColor: PALETTE.deep,
             color: 'white',
             backgroundImage: 'radial-gradient(circle at 30% 20%, rgba(201,163,107,0.4), transparent 60%)',
           }}
@@ -199,7 +199,7 @@ export function UpdateBanner({ info, onUpdate, onDismiss }) {
       style={{ paddingTop: 'max(env(safe-area-inset-top), 12px)' }}
     >
       <div className="max-w-md mx-auto rounded-2xl p-4 deep-shadow anim-slideUp pointer-events-auto relative overflow-hidden"
-        style={{ backgroundColor: PALETTE.sageDeep }}
+        style={{ backgroundColor: PALETTE.deep }}
       >
         <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full opacity-20"
           style={{ backgroundColor: PALETTE.gold }}
@@ -233,7 +233,7 @@ export function UpdateBanner({ info, onUpdate, onDismiss }) {
               </button>
               <button onClick={onUpdate}
                 className="smooth-tap font-display font-semibold text-xs px-4 py-1.5 rounded-xl flex items-center gap-1"
-                style={{ backgroundColor: PALETTE.gold, color: PALETTE.sageDeep }}
+                style={{ backgroundColor: PALETTE.gold, color: PALETTE.deep }}
               >
                 <RotateCcw size={12} /> อัปเดตเลย
               </button>

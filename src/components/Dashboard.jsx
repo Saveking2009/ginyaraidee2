@@ -4,7 +4,7 @@ import {
   TrendingUp, TrendingDown, Check, Loader2, ChevronRight, Sparkles,
   Newspaper, RotateCcw, AlertCircle, Zap, ListChecks,
 } from 'lucide-react';
-import { PALETTE } from '../theme';
+import { PALETTE, alpha } from '../theme';
 import { calcBMI, bmiCategory, calcBMR, calcTDEE, todayKey, load, save } from '../utils';
 import { levelOf } from './DailyTasks';
 import { Sheep, loadMascot, woolColorOf } from './Mascot';
@@ -53,7 +53,7 @@ export default function Dashboard({ profile, foodLog, goto, personality, streak 
 
       {/* calorie ring card */}
       <div className="rounded-3xl p-6 mb-4 deep-shadow anim-slideUp delay-1 relative overflow-hidden"
-        style={{ backgroundColor: PALETTE.sageDeep }}
+        style={{ backgroundColor: PALETTE.deep }}
       >
         <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full opacity-20"
           style={{ backgroundColor: PALETTE.gold }}
@@ -189,15 +189,15 @@ function TasksCard({ goto, streak }) {
         <Sheep wool={woolColorOf(mascot)} accessory={mascot.acc} mood={mood} size={50} />
       </div>
       <div className="flex-1 relative min-w-0">
-        <div className="font-display font-bold text-sm flex items-center gap-1.5" style={{ color: PALETTE.sageDeep }}>
+        <div className="font-display font-bold text-sm flex items-center gap-1.5" style={{ color: PALETTE.deep }}>
           <ListChecks size={14} /> ภารกิจวันนี้ {claimedToday.length}/5
         </div>
-        <div className="font-body text-xs mt-0.5 flex items-center gap-2 truncate" style={{ color: PALETTE.sageDeep, opacity: 0.85 }}>
+        <div className="font-body text-xs mt-0.5 flex items-center gap-2 truncate" style={{ color: PALETTE.deep, opacity: 0.85 }}>
           <span>{mascot.name} · Lv.{lv.index + 1} · {points} แต้ม</span>
           {streak > 0 && <span>🔥 {streak} วันติด</span>}
         </div>
       </div>
-      <ChevronRight size={18} color={PALETTE.sageDeep} className="relative flex-shrink-0" />
+      <ChevronRight size={18} color={PALETTE.deep} className="relative flex-shrink-0" />
     </button>
   );
 }
@@ -293,7 +293,7 @@ ${summary}
           </div>
           <div className="text-right">
             <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg"
-              style={{ backgroundColor: trendInfo.tone + '22', color: trendInfo.tone }}
+              style={{ backgroundColor: alpha(trendInfo.tone, 15), color: trendInfo.tone }}
             >
               {trendInfo.icon}
               <span className="font-display text-tiny font-semibold">{trendInfo.label}</span>
@@ -352,7 +352,7 @@ ${summary}
 
         {expanded && aiInsight && (
           <div className="mt-3 rounded-2xl p-4 anim-fadeIn"
-            style={{ backgroundColor: PALETTE.sageDeep }}
+            style={{ backgroundColor: PALETTE.deep }}
           >
             <div className="font-accent text-tiny mb-2 flex items-center gap-1.5" style={{ color: PALETTE.gold }}>
               <Sparkles size={12} /> น้องไกด์ว่ายังไง

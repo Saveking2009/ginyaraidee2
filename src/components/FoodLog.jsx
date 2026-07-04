@@ -3,7 +3,7 @@ import {
   Camera, Loader2, AlertCircle, AlertTriangle, Check, Pencil, Trash2,
   UtensilsCrossed, Sparkles, Leaf, Wheat, Droplet,
 } from 'lucide-react';
-import { PALETTE } from '../theme';
+import { PALETTE, alpha } from '../theme';
 import { fileToBase64, compressImage, fileToDataURL, todayKey, timeNow } from '../utils';
 import { buildDictHint } from '../data/foodDict';
 import { callClaude, parseAIJson } from '../api';
@@ -50,33 +50,36 @@ ${recentCorrections.map((c, i) => `${i+1}. AI ทาย "${c.aiName}" ${c.aiCal}
 `
         : '';
 
-      const prompt = `คุณคือนักโภชนาการมืออาชีพระดับสูง วิเคราะห์รูปอาหารแบบ "แม่นยำที่สุดเท่าที่เป็นไปได้" — ตรงไปตรงมา ไม่เกรงใจ แต่ยังเป็นมิตร
+      const prompt = `คุณคือนักโภชนาการคลินิกที่เชี่ยวชาญอาหารไทยและการประเมินพลังงานจากภาพถ่าย ประเมินแบบ "แม่นยำที่สุดเท่าที่เป็นไปได้" — ตรงไปตรงมา ไม่เกรงใจ แต่ยังเป็นมิตร
 ${allergyContext}${learningContext}
 
-**ฐานข้อมูลอาหารไทย (ใช้เป็นค่าอ้างอิงหลัก ถ้าตรงกับรายการในรูป ให้ใช้ค่านี้):**
+**ฐานข้อมูลอาหารไทย (ค่าอ้างอิงหลัก — ถ้าเมนูในรูปตรงกับรายการนี้ ให้ยึดค่านี้เป็นฐานแล้วปรับตามปริมาณจริงในรูป):**
 ${buildDictHint()}
 
-**ขั้นตอนแรก — ตรวจสอบรูปก่อน:**
-- ถ้าในรูปไม่มีอาหารชัดเจน (รูปขยะ, รูปคน, รูปสัตว์, รูปวิว, รูปเบลอมาก, รูปมืดดูไม่ออก, รูปสุ่ม)
-- หรือเป็นภาพล้อเล่น ภาพการ์ตูน ภาพ meme
-- → ตอบ JSON: {"rejected": true, "reason": "บอกสั้นๆ ว่าทำไมไม่วิเคราะห์ เช่น 'รูปนี้ไม่ใช่อาหารนะคะ', 'รูปเบลอมาก ถ่ายใหม่อีกครั้งได้ไหมคะ'"} แล้วหยุด
+**ขั้นที่ 0 — ตรวจสอบรูปก่อน:**
+- ถ้าในรูปไม่มีอาหารชัดเจน (รูปขยะ, รูปคน, รูปสัตว์, รูปวิว, รูปเบลอมาก, รูปมืดดูไม่ออก, รูปสุ่ม) หรือเป็นภาพการ์ตูน/meme
+- → ตอบ JSON เดียว: {"rejected": true, "reason": "บอกสั้นๆ เช่น 'รูปนี้ไม่ใช่อาหารนะคะ', 'รูปเบลอมาก ถ่ายใหม่อีกครั้งได้ไหมคะ'"} แล้วหยุด
 
-**ถ้าเป็นอาหารจริง ทำตามขั้นตอน:**
-1. ระบุอาหารทุกอย่างที่เห็นในจาน (รวมเครื่องปรุง ผัก น้ำจิ้ม)
-2. ประมาณ "ปริมาณจริง" จากรูป — ดูขนาดจาน/ช้อน เป็นตัวอ้างอิง:
-   - จานข้าวมาตรฐาน Ø 22-25cm, ชามก๋วยเตี๋ยว 18-22cm, จานเล็ก 18cm
-   - ข้าวสวย 1 ทัพพี ≈ 80g ≈ 100 kcal
-   - เนื้อสัตว์ขนาดเท่าฝ่ามือ ≈ 100g
-3. คำนวณแคลของแต่ละส่วนแยกกัน แล้วบวกรวม (อย่ามั่ว ให้ลองคิดทีละชิ้น)
-4. ถ้าเห็นน้ำมัน/ทอด/ผัด ให้บวกแคลน้ำมันเพิ่ม (1 ช้อนโต๊ะ ≈ 120 kcal)
-5. ระบุอาหารไทยให้ถูกต้อง (ผัดกะเพรา ≠ ผัดพริกหวาน, ต้มยำน้ำใส ≠ น้ำข้น)
-6. ${recentCorrections.length > 0 ? 'ใช้ข้อมูลการแก้ไขข้างบนช่วยตัดสินใจ' : 'ถ้าไม่แน่ใจมาก ตั้งค่า "confidence": "ต่ำ"'}
+**วิธีวิเคราะห์ — คิดทีละขั้นอย่างละเอียด:**
+1. ระบุประเภทจาน: จานเดียว / กับข้าว+ข้าว / เส้น / ของว่าง / ของหวาน / เครื่องดื่ม
+2. หา "ตัวเทียบขนาด" ในรูปก่อนเสมอ: ช้อนโต๊ะ(15ml) ส้อม ตะเกียบ จานข้าว(Ø23cm) จานเล็ก(Ø18cm) ชามก๋วยเตี๋ยว(Ø18-20cm) แก้ว(250-500ml) มือ — แล้วใช้ประมาณน้ำหนักแต่ละส่วน
+3. แจกแจงส่วนประกอบทีละอย่าง: ชนิด + น้ำหนักกรัมโดยประมาณ + วิธีปรุง (ทอด/ผัด/ต้ม/นึ่ง/ย่าง) — ค่าอ้างอิงต่อ 100g เนื้อสุก: อกไก่ไม่หนัง 165, ไก่มีหนัง 230, หมูสันนอก 240, หมูสามชั้น 520, หมูกรอบ 550, เนื้อวัว 250, ปลานึ่ง/ต้ม 120-150, ปลาทอด 200-250, กุ้ง 100, เต้าหู้ 80-120
+   - ข้าวสวย 1 ทัพพี ≈ 80g ≈ 100 kcal · ข้าวเหนียว 1 กำ ≈ 90g ≈ 210 kcal · เส้นก๋วยเตี๋ยว 1 ชาม ≈ 150-200 kcal
+   - ไข่ดาว 110 · ไข่ต้ม 75 · ไข่เจียว 180-250 (น้ำมันเยอะ)
+4. บวก "แคลแฝง" ที่คนมักลืม:
+   - น้ำมันผัด +1-1.5 ชต (120-180 kcal), ของทอด +1.5-2 ชต, เห็นเงามันบนอาหาร = น้ำมันเยอะ
+   - กะทิในแกง 1 ถ้วย +150-250 kcal · น้ำจิ้ม/น้ำราดหวาน 1 ชต +30-60 kcal
+   - เครื่องดื่ม: ดูสี ฟองนม ชั้นครีม — หวานปกติ vs หวานน้อย ต่างกัน ~30-40%, ไข่มุก +100-150
+5. รวมแคลทีละรายการ แล้ว sanity check: ถ้าผลรวมห่างจากค่าฐานข้อมูลของเมนูนั้นเกิน 25% ให้ทบทวนการประมาณปริมาณใหม่ก่อนตอบ
+6. ระบุเมนูไทยให้ถูกต้อง (ผัดกะเพรา ≠ ผัดพริกแกง, ต้มยำน้ำใส ≠ น้ำข้น, ส้มตำไทย ≠ ปูปลาร้า)
+7. ${recentCorrections.length > 0 ? 'เทียบกับที่ผู้ใช้เคยแก้ข้างบน — ถ้าเมนู/ขนาดจานคล้ายกัน ให้เอนไปทางค่าที่ผู้ใช้เคยระบุ' : 'ถ้าไม่แน่ใจมาก ตั้งค่า "confidence": "ต่ำ"'}
 
-"ตอบเป็น JSON เท่านั้น" ห้ามมี markdown ห้าม backtick ห้ามข้อความอื่น โครงสร้าง:
+คุณเขียนการคิดสั้นๆ ก่อนได้ (ห้ามใช้เครื่องหมายปีกกาในส่วนการคิด) แต่ต้องจบด้วย JSON โครงสร้างนี้เป็นก้อนสุดท้ายเสมอ ห้ามมี markdown ห้าม backtick:
 {
   "foods": ["ชื่ออาหารแต่ละอย่าง พร้อมปริมาณโดยประมาณ เช่น 'ข้าวสวย 1 ทัพพี', 'ไก่ทอด 2 ชิ้น'"],
+  "breakdown": [{"item": "ข้าวสวย ~160g", "kcal": 200}, {"item": "น้ำมันผัด ~1.5 ชต", "kcal": 160}],
   "displayName": "ชื่อสรุปจาน เช่น 'ข้าวมันไก่ + น้ำจิ้ม'",
-  "totalCalories": ตัวเลขรวมที่แม่นที่สุด (integer),
+  "totalCalories": ตัวเลขรวมที่แม่นที่สุด (integer — ต้องเท่ากับผลรวมของ breakdown),
   "protein": กรัม (integer),
   "carbs": กรัม (integer),
   "fat": กรัม (integer),
@@ -91,7 +94,7 @@ ${buildDictHint()}
 }`;
 
       const text = await callClaude({
-        max_tokens: 1500,
+        max_tokens: 2500,
         messages: [{
           role: 'user',
           content: [
@@ -142,21 +145,29 @@ ${buildDictHint()}
         ? `ผู้ใช้แพ้อาหาร: ${profile.foodAllergy.join(', ')} ถ้าเมนูนี้มักมีส่วนผสมที่แพ้ ให้ใส่ใน warnings`
         : '';
       const text = await callClaude({
-        max_tokens: 800,
+        max_tokens: 1500,
         messages: [{
           role: 'user',
-          content: `คุณคือนักโภชนาการมืออาชีพ ผู้ใช้พิมพ์ชื่ออาหารว่า "${q}"
-ประเมินจากปริมาณมาตรฐาน 1 จาน/ชาม/แก้ว (ถ้าผู้ใช้ระบุปริมาณมาด้วย ให้ใช้ตามนั้น)
+          content: `คุณคือนักโภชนาการคลินิกที่เชี่ยวชาญอาหารไทย ผู้ใช้พิมพ์ชื่ออาหารว่า "${q}"
+ประเมินจากปริมาณมาตรฐาน 1 จาน/ชาม/แก้ว (ถ้าผู้ใช้ระบุปริมาณ/ขนาด/ระดับหวานมาด้วย ให้ใช้ตามนั้นเคร่งครัด)
 ${allergyContext}
 
 **ฐานข้อมูลอาหารไทย (ใช้เป็นค่าอ้างอิงหลัก ถ้าตรงกับเมนู):**
 ${buildDictHint()}
 
-ตอบเป็น JSON เท่านั้น ห้ามมี markdown ห้าม backtick:
+**วิธีคิด:**
+1. แตกเมนูเป็นส่วนประกอบ: แป้ง/ข้าว, โปรตีน, ผัก, น้ำมัน/กะทิ, น้ำจิ้ม/น้ำราด/น้ำตาล
+2. ประมาณน้ำหนักกรัมของแต่ละส่วนตามเสิร์ฟมาตรฐานร้านไทย แล้วคิดแคลทีละส่วน
+3. อย่าลืมแคลแฝง: น้ำมันผัด 1-1.5 ชต (120-180), ของทอด 1.5-2 ชต, กะทิ 1 ถ้วย +150-250, น้ำจิ้มหวาน 1 ชต +30-60
+4. เครื่องดื่ม: หวานปกติ vs หวานน้อย ต่างกัน ~30-40%, ไข่มุก +100-150
+5. sanity check กับค่าฐานข้อมูล ถ้าห่างเกิน 25% ให้ทบทวนใหม่
+
+คุณเขียนการคิดสั้นๆ ก่อนได้ (ห้ามใช้เครื่องหมายปีกกาในส่วนการคิด) แต่ต้องจบด้วย JSON โครงสร้างนี้เป็นก้อนสุดท้ายเสมอ ห้ามมี markdown ห้าม backtick:
 {
   "foods": ["ส่วนประกอบหลักโดยประมาณ"],
+  "breakdown": [{"item": "เส้นเล็ก ~150g", "kcal": 170}],
   "displayName": "ชื่อเมนูที่สะกดถูกต้อง",
-  "totalCalories": ตัวเลข (integer),
+  "totalCalories": ตัวเลข (integer — เท่ากับผลรวม breakdown),
   "protein": กรัม (integer),
   "carbs": กรัม (integer),
   "fat": กรัม (integer),
@@ -243,7 +254,7 @@ ${buildDictHint()}
           <button onClick={() => fileRef.current?.click()}
             className="smooth-tap w-full rounded-3xl p-8 flex flex-col items-center gap-3 anim-pulseGlow"
             style={{
-              backgroundColor: PALETTE.sageDeep,
+              backgroundColor: PALETTE.deep,
               backgroundImage: 'radial-gradient(circle at 30% 20%, rgba(201,163,107,0.25), transparent 50%)'
             }}
           >
@@ -395,12 +406,33 @@ ${buildDictHint()}
                 <Macro icon={<Droplet size={14} />} label="ไขมัน" value={result.fat} tone={PALETTE.coral} />
               </div>
 
+              {/* รายละเอียดแคลแยกชิ้น */}
+              {Array.isArray(result.breakdown) && result.breakdown.length > 0 && (
+                <div className="rounded-2xl p-3 mb-3" style={{ backgroundColor: PALETTE.shell }}>
+                  <div className="font-accent text-xs mb-2" style={{ color: PALETTE.gold }}>
+                    คิดมาจากอะไรบ้าง
+                  </div>
+                  <div className="space-y-1">
+                    {result.breakdown.map((b, i) => (
+                      <div key={i} className="flex items-baseline justify-between gap-2">
+                        <div className="font-body text-xs flex-1" style={{ color: PALETTE.forest }}>
+                          {b.item}
+                        </div>
+                        <div className="font-display text-xs font-semibold whitespace-nowrap" style={{ color: PALETTE.sageDark }}>
+                          {b.kcal} kcal
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* แก้ชื่อแล้ว → ให้น้องไกด์คำนวณแคลใหม่จากชื่อ */}
               {originalResult && result.displayName?.trim() &&
                 result.displayName.trim() !== originalResult.displayName && (
                 <button onClick={() => estimateFromName(result.displayName, result)} disabled={busy}
                   className="smooth-tap w-full py-2.5 px-3 rounded-xl mb-4 font-display text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50"
-                  style={{ backgroundColor: PALETTE.gold + '22', color: PALETTE.sageDark, border: `1.5px dashed ${PALETTE.gold}` }}
+                  style={{ backgroundColor: alpha(PALETTE.gold, 15), color: PALETTE.sageDark, border: `1.5px dashed ${PALETTE.gold}` }}
                 >
                   {busy ? (
                     <><Loader2 size={13} className="anim-spin-slow" /> กำลังคำนวณใหม่...</>

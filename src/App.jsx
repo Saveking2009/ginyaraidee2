@@ -23,9 +23,32 @@ import { BottomNav, QuickRecordSheet, MoreMenu, UpdateBanner } from './component
 const STORAGE_KEYS = [
   'gyn_profile', 'gyn_foodlog', 'gyn_chat', 'gyn_meds', 'gyn_privacy', 'gyn_persona',
   'gyn_water', 'gyn_exercises', 'gyn_sleep', 'gyn_vitals', 'gyn_news', 'gyn_corrections',
-  'gyn_weights', 'gyn_voice', 'gyn_points', 'gyn_tasks', 'gyn_mascot',
+  'gyn_weights', 'gyn_voice', 'gyn_points', 'gyn_tasks', 'gyn_mascot', 'gyn_theme',
   'gyn_game_best', 'gyn_game_plays', // เผื่อค้างจากเวอร์ชันเก่า
 ];
+
+// พื้นหลังเคลื่อนไหว — ก้อนสีเบลอลอยช้าๆ อยู่หลังเนื้อหาทั้งหมด
+function AmbientBackground() {
+  const blobs = [
+    { size: 340, left: '-90px', top: '-60px', color: '135, 168, 120', anim: 'drift1 18s ease-in-out infinite alternate' },
+    { size: 300, right: '-110px', top: '30%', color: '201, 163, 107', anim: 'drift2 24s ease-in-out infinite alternate' },
+    { size: 280, left: '-70px', bottom: '-80px', color: '217, 104, 74', anim: 'drift3 21s ease-in-out infinite alternate' },
+  ];
+  return (
+    <div aria-hidden="true">
+      {blobs.map((b, i) => (
+        <div key={i} className="ambient-blob"
+          style={{
+            width: b.size, height: b.size,
+            left: b.left, right: b.right, top: b.top, bottom: b.bottom,
+            background: `radial-gradient(circle, rgba(${b.color}, calc(var(--blob-a) * 0.5)), transparent 70%)`,
+            animation: b.anim,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 const DEFAULT_PRIVACY = { showHeight: true, showWeight: true, showAge: true, showAllergies: false };
 
@@ -49,6 +72,7 @@ export default function App() {
   const [privacy, _setPrivacy] = useState(() => load('gyn_privacy', DEFAULT_PRIVACY));
   const [updateInfo, setUpdateInfo] = useState(null);
   const [showIntro, setShowIntro] = useState(true); // วิดีโอเปิดตัว
+  const [themeMode, _setThemeMode] = useState(() => load('gyn_theme', 'auto')); // light | dark | auto
 
   // Persist helper — รองรับทั้งค่าใหม่ตรงๆ และ function(prev) เพื่อกัน state ค้าง
   // (เช่นตอน import ความจำหลายรายการติดกัน)
@@ -74,6 +98,19 @@ export default function App() {
   // เก็บการแก้ไขล่าสุด 50 รายการพอ — กัน localStorage บวม
   const setCorrections = makeSetter('gyn_corrections', _setCorrections, (v) => v.slice(-50));
   const setWeights = makeSetter('gyn_weights', _setWeights);
+  const setThemeMode = (v) => { _setThemeMode(v); save('gyn_theme', v); };
+
+  // สลับธีมสว่าง/มืด — 'auto' ตามการตั้งค่าเครื่อง
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const dark = themeMode === 'dark' || (themeMode === 'auto' && mq.matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    };
+    apply();
+    mq.addEventListener?.('change', apply);
+    return () => mq.removeEventListener?.('change', apply);
+  }, [themeMode]);
 
   // streak = จำนวนวันที่บันทึกอะไรก็ได้ติดต่อกัน
   const streak = calcStreak(foodLog, water, exercises, sleep, vitals, weights);
@@ -149,6 +186,7 @@ export default function App() {
     _setWater([]); _setExercises([]); _setSleep([]); _setVitals([]); _setCorrections([]); _setWeights([]);
     _setPrivacy(DEFAULT_PRIVACY);
     _setPersonality('auto');
+    _setThemeMode('auto');
     setScreen('home');
   };
 
@@ -168,7 +206,8 @@ export default function App() {
       <div className="font-body min-h-screen relative grain-bg"
         style={{ backgroundColor: PALETTE.cream, color: PALETTE.forest }}
       >
-        <div className="max-w-md mx-auto relative">
+        <AmbientBackground />
+        <div className="max-w-md mx-auto relative z-10">
           {screen === 'home' && (
             <Dashboard profile={profile} foodLog={foodLog} goto={setScreen}
               personality={personality} streak={streak} />
@@ -232,6 +271,7 @@ export default function App() {
               corrections={corrections}
               clearCorrections={() => setCorrections([])}
               addCorrection={(c) => setCorrections(prev => [...prev, c])}
+              theme={themeMode} setTheme={setThemeMode}
             />
           )}
         </div>

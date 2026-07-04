@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check, ChevronRight, Gift, Palette, Lock, X } from 'lucide-react';
-import { PALETTE } from '../theme';
+import { PALETTE, alpha } from '../theme';
 import { load, save, todayKey, waterTargetMl } from '../utils';
 import { Sheep, WOOL_COLORS, ACCESSORIES, loadMascot, woolColorOf } from './Mascot';
 
@@ -125,7 +125,7 @@ export default function DailyTasks({ profile, foodLog, water, exercises, sleep, 
 
         {/* น้องแกะ + คำพูด + แต้ม */}
         <div className="rounded-3xl p-5 mb-4 deep-shadow relative overflow-hidden anim-slideUp"
-          style={{ backgroundColor: PALETTE.sageDeep }}
+          style={{ backgroundColor: PALETTE.deep }}
         >
           <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full opacity-15"
             style={{ backgroundColor: PALETTE.gold }} />
@@ -161,7 +161,7 @@ export default function DailyTasks({ profile, foodLog, water, exercises, sleep, 
               </div>
               <button onClick={() => setCustomizing(true)}
                 className="smooth-tap font-display text-xs font-semibold px-3 py-2 rounded-xl inline-flex items-center gap-1.5"
-                style={{ backgroundColor: PALETTE.gold, color: PALETTE.sageDeep }}
+                style={{ backgroundColor: PALETTE.gold, color: PALETTE.deep }}
               >
                 <Palette size={13} /> แต่งตัวน้องแกะ
               </button>
@@ -184,7 +184,7 @@ export default function DailyTasks({ profile, foodLog, water, exercises, sleep, 
           </div>
           {claimableCount > 0 && (
             <div className="font-accent text-xs px-2.5 py-1 rounded-full anim-fadeIn"
-              style={{ backgroundColor: PALETTE.gold, color: PALETTE.sageDeep }}
+              style={{ backgroundColor: PALETTE.gold, color: PALETTE.deep }}
             >
               มีแต้มรอรับ {claimableCount} ภารกิจ!
             </div>
@@ -224,14 +224,14 @@ export default function DailyTasks({ profile, foodLog, water, exercises, sleep, 
                   </div>
                   {claimed ? (
                     <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: PALETTE.sage + '33', color: PALETTE.sageDark }}
+                      style={{ backgroundColor: alpha(PALETTE.sage, 20), color: PALETTE.sageDark }}
                     >
                       <Check size={16} />
                     </div>
                   ) : complete ? (
                     <button onClick={() => claim(t)}
                       className="smooth-tap font-display font-semibold text-xs px-4 py-2.5 rounded-xl flex-shrink-0 anim-pulseGlow"
-                      style={{ backgroundColor: PALETTE.gold, color: PALETTE.sageDeep }}
+                      style={{ backgroundColor: PALETTE.gold, color: PALETTE.deep }}
                     >
                       รับ +{t.points}
                     </button>
@@ -272,17 +272,19 @@ export default function DailyTasks({ profile, foodLog, water, exercises, sleep, 
           <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{
               backgroundColor: allDone && !bonusClaimed ? 'rgba(255,255,255,0.3)' : PALETTE.shell,
-              color: PALETTE.sageDeep,
+              color: allDone && !bonusClaimed ? PALETTE.deep : PALETTE.sageDeep,
             }}
           >
             <Gift size={20} />
           </div>
           <div className="flex-1">
-            <div className="font-display font-semibold text-sm" style={{ color: PALETTE.sageDeep }}>
+            <div className="font-display font-semibold text-sm"
+              style={{ color: allDone && !bonusClaimed ? PALETTE.deep : PALETTE.sageDeep }}
+            >
               {bonusClaimed ? 'รับโบนัสวันนี้แล้ว 🎉' : `ทำครบทุกภารกิจ รับโบนัส +${ALL_DONE_BONUS}`}
             </div>
             <div className="font-body text-xs mt-0.5"
-              style={{ color: allDone && !bonusClaimed ? PALETTE.sageDeep : PALETTE.muted }}
+              style={{ color: allDone && !bonusClaimed ? PALETTE.deep : PALETTE.muted }}
             >
               {bonusClaimed ? 'พรุ่งนี้มาทำต่อ อย่าให้ไฟดับนะ 🔥' : allDone ? 'ครบแล้ว! กดรับเลย' : `เหลืออีก ${tasks.length - doneCount} ภารกิจ`}
             </div>
@@ -290,7 +292,7 @@ export default function DailyTasks({ profile, foodLog, water, exercises, sleep, 
           {allDone && !bonusClaimed && (
             <button onClick={claimBonus}
               className="smooth-tap font-display font-bold text-xs px-4 py-2.5 rounded-xl anim-pulseGlow flex-shrink-0"
-              style={{ backgroundColor: PALETTE.sageDeep, color: 'white' }}
+              style={{ backgroundColor: PALETTE.deep, color: 'white' }}
             >
               รับโบนัส!
             </button>
@@ -334,7 +336,7 @@ export default function DailyTasks({ profile, foodLog, water, exercises, sleep, 
 
               {/* พรีวิว */}
               <div className="rounded-3xl p-5 mb-5 flex items-center justify-center"
-                style={{ backgroundColor: PALETTE.sageDeep }}
+                style={{ backgroundColor: PALETTE.deep }}
               >
                 <Sheep wool={woolColorOf(mascot)} accessory={mascot.acc} mood="happy" size={130} />
               </div>
@@ -387,10 +389,10 @@ export default function DailyTasks({ profile, foodLog, water, exercises, sleep, 
                       onClick={() => !locked && saveMascot({ acc: a.id })}
                       className="smooth-tap rounded-xl p-3 flex flex-col items-center gap-1"
                       style={{
-                        backgroundColor: active ? PALETTE.sageDeep : PALETTE.paper,
+                        backgroundColor: active ? PALETTE.deep : PALETTE.paper,
                         color: active ? 'white' : PALETTE.forest,
                         opacity: locked ? 0.55 : 1,
-                        border: `1px solid ${active ? PALETTE.sageDeep : PALETTE.mist}`,
+                        border: `1px solid ${active ? PALETTE.deep : PALETTE.mist}`,
                       }}
                     >
                       <span className="text-xl">{locked ? '🔒' : a.icon}</span>

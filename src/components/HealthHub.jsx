@@ -3,7 +3,7 @@ import {
   GlassWater, Dumbbell, Moon, Stethoscope, TrendingUp, ChevronRight,
   Plus, Minus, Trash2, Activity, BarChart3, AlertCircle, Droplet,
 } from 'lucide-react';
-import { PALETTE } from '../theme';
+import { PALETTE, alpha } from '../theme';
 import { todayKey, timeNow, waterTargetMl, EXERCISE_TYPES, exerciseCal, lastNDaysKeys } from '../utils';
 
 /* ============================================================
@@ -42,10 +42,13 @@ function MiniLineChart({ points, color, unit = '', height = 140, target = null }
   // Y axis labels (3 ticks)
   const ticks = [min, (min + max) / 2, max];
 
+  // id ต้องไม่มีอักขระพิเศษ — สีอาจเป็น var(--x) ได้
+  const gradId = `grad-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }}>
       <defs>
-        <linearGradient id={`grad-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.25" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
@@ -73,7 +76,7 @@ function MiniLineChart({ points, color, unit = '', height = 140, target = null }
       )}
 
       {/* Area + line */}
-      <path d={areaPath} fill={`url(#grad-${color.replace('#', '')})`} />
+      <path d={areaPath} fill={`url(#${gradId})`} />
       <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
       {/* Dots + last value */}
@@ -131,7 +134,7 @@ export default function HealthHub({ profile, water, addWater, removeWater, sleep
         <div className="grid grid-cols-2 gap-3 mb-5">
           <button onClick={() => setTab('water')}
             className="smooth-tap text-left rounded-2xl p-4 organic-shadow anim-slideUp"
-            style={{ backgroundColor: tab === 'water' ? PALETTE.sageDeep : PALETTE.paper, color: tab === 'water' ? 'white' : PALETTE.forest }}
+            style={{ backgroundColor: tab === 'water' ? PALETTE.deep : PALETTE.paper, color: tab === 'water' ? 'white' : PALETTE.forest }}
           >
             <div className="flex items-center gap-1.5 mb-2" style={{ color: tab === 'water' ? PALETTE.gold : PALETTE.sage }}>
               <GlassWater size={16} /><span className="font-accent text-xs">น้ำดื่ม</span>
@@ -147,7 +150,7 @@ export default function HealthHub({ profile, water, addWater, removeWater, sleep
 
           <button onClick={() => setTab('exercise')}
             className="smooth-tap text-left rounded-2xl p-4 organic-shadow anim-slideUp delay-1"
-            style={{ backgroundColor: tab === 'exercise' ? PALETTE.sageDeep : PALETTE.paper, color: tab === 'exercise' ? 'white' : PALETTE.forest }}
+            style={{ backgroundColor: tab === 'exercise' ? PALETTE.deep : PALETTE.paper, color: tab === 'exercise' ? 'white' : PALETTE.forest }}
           >
             <div className="flex items-center gap-1.5 mb-2" style={{ color: tab === 'exercise' ? PALETTE.gold : PALETTE.coral }}>
               <Dumbbell size={16} /><span className="font-accent text-xs">ออกกำลัง</span>
@@ -160,7 +163,7 @@ export default function HealthHub({ profile, water, addWater, removeWater, sleep
 
           <button onClick={() => setTab('sleep')}
             className="smooth-tap text-left rounded-2xl p-4 organic-shadow anim-slideUp delay-2"
-            style={{ backgroundColor: tab === 'sleep' ? PALETTE.sageDeep : PALETTE.paper, color: tab === 'sleep' ? 'white' : PALETTE.forest }}
+            style={{ backgroundColor: tab === 'sleep' ? PALETTE.deep : PALETTE.paper, color: tab === 'sleep' ? 'white' : PALETTE.forest }}
           >
             <div className="flex items-center gap-1.5 mb-2" style={{ color: tab === 'sleep' ? PALETTE.gold : '#6F58B8' }}>
               <Moon size={16} /><span className="font-accent text-xs">การนอน</span>
@@ -175,7 +178,7 @@ export default function HealthHub({ profile, water, addWater, removeWater, sleep
 
           <button onClick={() => setTab('vitals')}
             className="smooth-tap text-left rounded-2xl p-4 organic-shadow anim-slideUp delay-3"
-            style={{ backgroundColor: tab === 'vitals' ? PALETTE.sageDeep : PALETTE.paper, color: tab === 'vitals' ? 'white' : PALETTE.forest }}
+            style={{ backgroundColor: tab === 'vitals' ? PALETTE.deep : PALETTE.paper, color: tab === 'vitals' ? 'white' : PALETTE.forest }}
           >
             <div className="flex items-center gap-1.5 mb-2" style={{ color: tab === 'vitals' ? PALETTE.gold : PALETTE.coral }}>
               <Stethoscope size={16} /><span className="font-accent text-xs">สัญญาณชีพ</span>
@@ -192,7 +195,7 @@ export default function HealthHub({ profile, water, addWater, removeWater, sleep
         {/* Trends button */}
         <button onClick={() => setTab('trends')}
           className="smooth-tap w-full rounded-2xl p-3 mb-5 flex items-center gap-3 organic-shadow"
-          style={{ backgroundColor: tab === 'trends' ? PALETTE.sageDeep : PALETTE.paper, color: tab === 'trends' ? 'white' : PALETTE.forest }}
+          style={{ backgroundColor: tab === 'trends' ? PALETTE.deep : PALETTE.paper, color: tab === 'trends' ? 'white' : PALETTE.forest }}
         >
           <div className="w-9 h-9 rounded-xl flex items-center justify-center"
             style={{ backgroundColor: tab === 'trends' ? 'rgba(255,255,255,0.15)' : PALETTE.shell, color: tab === 'trends' ? PALETTE.gold : PALETTE.sageDark }}
@@ -380,7 +383,7 @@ function WaterTab({ water, addWater, removeWater, target, todayWater }) {
             </div>
             <div className="font-body text-sm" style={{ color: PALETTE.muted }}>เป้าหมาย {target} ml</div>
             <div className="font-accent text-xs mt-2 px-2 py-1 inline-block rounded-md"
-              style={{ backgroundColor: pct >= 1 ? PALETTE.sage + '22' : PALETTE.shell, color: pct >= 1 ? PALETTE.sageDark : PALETTE.muted }}
+              style={{ backgroundColor: pct >= 1 ? alpha(PALETTE.sage, 15) : PALETTE.shell, color: pct >= 1 ? PALETTE.sageDark : PALETTE.muted }}
             >
               {pct >= 1 ? '✨ ครบเป้าแล้ว!' : `เหลือ ${target - todayWater} ml`}
             </div>
@@ -481,7 +484,7 @@ function ExerciseTab({ profile, exercises, addExercise, removeExercise }) {
               <button key={t.id} onClick={() => setType(t)}
                 className="smooth-tap rounded-xl py-2.5 flex flex-col items-center gap-0.5"
                 style={{
-                  backgroundColor: type.id === t.id ? PALETTE.sageDeep : PALETTE.shell,
+                  backgroundColor: type.id === t.id ? PALETTE.deep : PALETTE.shell,
                   color: type.id === t.id ? 'white' : PALETTE.forest,
                 }}
               >
@@ -730,14 +733,14 @@ function VitalsTab({ vitals, addVital, removeVital }) {
           <button onClick={() => setKind('bp')}
             className="smooth-tap flex-1 py-2 rounded-xl font-display font-medium text-sm"
             style={{
-              backgroundColor: kind === 'bp' ? PALETTE.sageDeep : PALETTE.shell,
+              backgroundColor: kind === 'bp' ? PALETTE.deep : PALETTE.shell,
               color: kind === 'bp' ? 'white' : PALETTE.forest,
             }}
           >ความดัน</button>
           <button onClick={() => setKind('sugar')}
             className="smooth-tap flex-1 py-2 rounded-xl font-display font-medium text-sm"
             style={{
-              backgroundColor: kind === 'sugar' ? PALETTE.sageDeep : PALETTE.shell,
+              backgroundColor: kind === 'sugar' ? PALETTE.deep : PALETTE.shell,
               color: kind === 'sugar' ? 'white' : PALETTE.forest,
             }}
           >น้ำตาลในเลือด</button>

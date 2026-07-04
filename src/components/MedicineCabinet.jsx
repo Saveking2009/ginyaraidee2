@@ -155,7 +155,7 @@ export default function MedicineCabinet({ medicines, addMedicine, removeMedicine
             />
             <button onClick={() => scanFileRef.current?.click()} disabled={scanning || busy}
               className="smooth-tap w-full p-4 rounded-2xl mb-3 flex items-center gap-3 relative overflow-hidden disabled:opacity-50"
-              style={{ backgroundColor: PALETTE.sageDeep }}
+              style={{ backgroundColor: PALETTE.deep }}
             >
               <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full opacity-20"
                 style={{ backgroundColor: PALETTE.gold }} />

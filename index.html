@@ -21,7 +21,17 @@
     <style>
       html, body, #root { height: 100%; margin: 0; }
       body { background: #F7F1E6; overscroll-behavior: none; }
+      html[data-theme="dark"] body { background: #171C16; }
     </style>
+    <script>
+      // ตั้งธีมก่อนหน้าเว็บวาด — กันจอกะพริบขาวตอนเปิดแอปในโหมดมืด
+      try {
+        var t = JSON.parse(localStorage.getItem('gyn_theme') || '"auto"');
+        if (t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

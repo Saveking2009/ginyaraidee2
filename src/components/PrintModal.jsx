@@ -3,7 +3,7 @@ import {
   User, UtensilsCrossed, Pill, GlassWater, Dumbbell, Moon, Stethoscope,
   Check, Printer, Loader2,
 } from 'lucide-react';
-import { PALETTE } from '../theme';
+import { PALETTE, alpha } from '../theme';
 import { calcBMI, bmiCategory, calcBMR, calcTDEE, lastNDaysKeys } from '../utils';
 
 export default function PrintModal({ open, onClose, profile, foodLog, medicines, water, exercises, sleep, vitals }) {
@@ -64,9 +64,9 @@ export default function PrintModal({ open, onClose, profile, foodLog, medicines,
               <button key={p.v} onClick={() => setPeriod(p.v)}
                 className="smooth-tap flex-1 py-2 rounded-xl font-display font-medium text-sm"
                 style={{
-                  backgroundColor: period === p.v ? PALETTE.sageDeep : PALETTE.paper,
+                  backgroundColor: period === p.v ? PALETTE.deep : PALETTE.paper,
                   color: period === p.v ? 'white' : PALETTE.forest,
-                  border: `1px solid ${period === p.v ? PALETTE.sageDeep : PALETTE.mist}`,
+                  border: `1px solid ${period === p.v ? PALETTE.deep : PALETTE.mist}`,
                 }}
               >{p.l}</button>
             ))}
@@ -89,7 +89,7 @@ export default function PrintModal({ open, onClose, profile, foodLog, medicines,
                   }}
                 >
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: active ? PALETTE.sage + '22' : PALETTE.shell, color: active ? PALETTE.sageDark : PALETTE.muted }}
+                    style={{ backgroundColor: active ? alpha(PALETTE.sage, 15) : PALETTE.shell, color: active ? PALETTE.sageDark : PALETTE.muted }}
                   >
                     <I size={16} />
                   </div>
