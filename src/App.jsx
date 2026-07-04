@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PALETTE, FONT_CSS } from './theme';
 import { load, save, calcStreak } from './utils';
+import IntroSplash from './components/IntroSplash';
 import Onboarding from './components/Onboarding';
 import Dashboard from './components/Dashboard';
 import FoodLog from './components/FoodLog';
@@ -47,6 +48,7 @@ export default function App() {
   const [printOpen, setPrintOpen] = useState(false);
   const [privacy, _setPrivacy] = useState(() => load('gyn_privacy', DEFAULT_PRIVACY));
   const [updateInfo, setUpdateInfo] = useState(null);
+  const [showIntro, setShowIntro] = useState(true); // วิดีโอเปิดตัว
 
   // Persist helper — รองรับทั้งค่าใหม่ตรงๆ และ function(prev) เพื่อกัน state ค้าง
   // (เช่นตอน import ความจำหลายรายการติดกัน)
@@ -119,6 +121,16 @@ export default function App() {
     document.body.style.backgroundColor = PALETTE.cream;
     document.body.style.fontFamily = "'IBM Plex Sans Thai Looped', sans-serif";
   }, []);
+
+  // วิดีโอเปิดตัว — เล่นก่อนเข้าแอปทุกครั้ง (ข้ามได้)
+  if (showIntro) {
+    return (
+      <>
+        <style>{FONT_CSS}</style>
+        <IntroSplash onDone={() => setShowIntro(false)} />
+      </>
+    );
+  }
 
   if (!profile) {
     return (
