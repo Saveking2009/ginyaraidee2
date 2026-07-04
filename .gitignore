@@ -10,7 +10,8 @@ dist/
 .env.local
 .env.*.local
 
-# Editor
+# Editor / local tooling
+.claude/
 .vscode/
 .idea/
 *.swp
