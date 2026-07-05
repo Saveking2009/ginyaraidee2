@@ -130,11 +130,11 @@ export default function DailyTasks({ profile, foodLog, water, exercises, sleep, 
           <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full opacity-15"
             style={{ backgroundColor: PALETTE.gold }} />
 
-          {/* speech bubble */}
+          {/* speech bubble — พื้นขาวคงที่ ตัวหนังสือต้องเขียวเข้มคงที่ (ห้ามใช้สีตามธีม ไม่งั้นโหมดมืดอ่านไม่ออก) */}
           <div className="relative rounded-2xl px-4 py-3 mb-3"
             style={{ backgroundColor: 'rgba(255,255,255,0.95)' }}
           >
-            <div className="font-body text-sm leading-relaxed" style={{ color: PALETTE.forest }}>
+            <div className="font-body text-sm leading-relaxed font-medium" style={{ color: PALETTE.deep }}>
               {speech}
             </div>
             <div className="absolute -bottom-2 left-10 w-4 h-4 rotate-45"
