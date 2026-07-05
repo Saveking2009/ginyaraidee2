@@ -1,12 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Camera, Loader2, AlertCircle, AlertTriangle, Check, Pencil, Trash2,
-  UtensilsCrossed, Sparkles, Leaf, Wheat, Droplet,
+  UtensilsCrossed, Sparkles, Leaf, Wheat, Droplet, X, Plus,
 } from 'lucide-react';
 import { PALETTE, alpha } from '../theme';
-import { fileToBase64, compressImage, fileToDataURL, todayKey, timeNow } from '../utils';
+import { fileToBase64, compressImage, fileToDataURL, todayKey, timeNow, load, save } from '../utils';
 import { buildDictHint } from '../data/foodDict';
-import { callClaude, parseAIJson } from '../api';
+import { callClaude, parseAIJson, fetchCommunityFood } from '../api';
 
 export default function FoodLog({ profile, foodLog, addFood, removeFood, editFood, corrections, addCorrection }) {
   const [busy, setBusy] = useState(false);
@@ -18,11 +18,33 @@ export default function FoodLog({ profile, foodLog, addFood, removeFood, editFoo
   const [editName, setEditName] = useState('');
   const [editCal, setEditCal] = useState('');
   const [manualName, setManualName] = useState('');
+  const [community, setCommunity] = useState(() => load('gyn_community', null));
   const fileRef = useRef(null);
 
   const today = todayKey();
   const todayLog = foodLog.filter(f => f.day === today);
   const consumed = todayLog.reduce((s, f) => s + (f.calories || 0), 0);
+
+  // ดึงคลังความจำรวมจากผู้ใช้ทุกคน (refresh ทุก 12 ชม.)
+  useEffect(() => {
+    if (!community || Date.now() - (community.fetchedAt || 0) > 12 * 60 * 60 * 1000) {
+      fetchCommunityFood().then(items => {
+        if (items.length > 0) {
+          const next = { items, fetchedAt: Date.now() };
+          setCommunity(next);
+          save('gyn_community', next);
+        }
+      });
+    }
+  }, []);
+
+  // สร้างข้อความอ้างอิงจากคลังกลางสำหรับใส่ใน prompt
+  const communityHint = () => {
+    const items = (community?.items || []).slice(0, 40);
+    if (items.length === 0) return '';
+    return `\n\n**ค่าจริงที่ยืนยันโดยผู้ใช้ทุกคนของแอป (น้ำหนักความน่าเชื่อถือตามจำนวนครั้ง — ถ้าเมนูตรงกัน ให้ค่านี้สำคัญกว่าฐานข้อมูลทั่วไป):**
+${items.map(it => `- ${it.name}: เฉลี่ย ${it.avgCal} kcal (ยืนยัน ${it.count} ครั้ง)`).join('\n')}`;
+  };
 
   const analyze = async (file) => {
     setBusy(true);
@@ -50,31 +72,55 @@ ${recentCorrections.map((c, i) => `${i+1}. AI ทาย "${c.aiName}" ${c.aiCal}
 `
         : '';
 
-      const prompt = `คุณคือนักโภชนาการคลินิกที่เชี่ยวชาญอาหารไทยและการประเมินพลังงานจากภาพถ่าย ประเมินแบบ "แม่นยำที่สุดเท่าที่เป็นไปได้" — ตรงไปตรงมา ไม่เกรงใจ แต่ยังเป็นมิตร
-${allergyContext}${learningContext}
+      const prompt = `คุณคือนักโภชนาการคลินิกอาวุโสที่เชี่ยวชาญอาหารไทยและการประเมินพลังงานจากภาพถ่ายโดยเฉพาะ ภารกิจ: ประเมินแคลอรี่จากรูปนี้ให้ "แม่นที่สุดเท่าที่มนุษย์ผู้เชี่ยวชาญทำได้" — ตรงไปตรงมา ไม่เกรงใจ แต่ยังเป็นมิตร
+${allergyContext}${learningContext}${communityHint()}
 
-**ฐานข้อมูลอาหารไทย (ค่าอ้างอิงหลัก — ถ้าเมนูในรูปตรงกับรายการนี้ ให้ยึดค่านี้เป็นฐานแล้วปรับตามปริมาณจริงในรูป):**
+**ฐานข้อมูลอาหารไทย (ค่าอ้างอิง — ถ้าเมนูในรูปตรง ให้ยึดเป็นฐานแล้วปรับตามปริมาณจริงในรูป):**
 ${buildDictHint()}
+
+**ลำดับความน่าเชื่อถือของข้อมูลอ้างอิง:** 1) สิ่งที่ผู้ใช้คนนี้เคยแก้ (สำคัญสุด — คือจานจริงร้านจริงของเขา) → 2) ค่าเฉลี่ยที่ผู้ใช้ทุกคนยืนยัน → 3) ฐานข้อมูลทั่วไป
 
 **ขั้นที่ 0 — ตรวจสอบรูปก่อน:**
 - ถ้าในรูปไม่มีอาหารชัดเจน (รูปขยะ, รูปคน, รูปสัตว์, รูปวิว, รูปเบลอมาก, รูปมืดดูไม่ออก, รูปสุ่ม) หรือเป็นภาพการ์ตูน/meme
 - → ตอบ JSON เดียว: {"rejected": true, "reason": "บอกสั้นๆ เช่น 'รูปนี้ไม่ใช่อาหารนะคะ', 'รูปเบลอมาก ถ่ายใหม่อีกครั้งได้ไหมคะ'"} แล้วหยุด
 
-**วิธีวิเคราะห์ — คิดทีละขั้นอย่างละเอียด:**
-1. ระบุประเภทจาน: จานเดียว / กับข้าว+ข้าว / เส้น / ของว่าง / ของหวาน / เครื่องดื่ม
-2. หา "ตัวเทียบขนาด" ในรูปก่อนเสมอ: ช้อนโต๊ะ(15ml) ส้อม ตะเกียบ จานข้าว(Ø23cm) จานเล็ก(Ø18cm) ชามก๋วยเตี๋ยว(Ø18-20cm) แก้ว(250-500ml) มือ — แล้วใช้ประมาณน้ำหนักแต่ละส่วน
-3. แจกแจงส่วนประกอบทีละอย่าง: ชนิด + น้ำหนักกรัมโดยประมาณ + วิธีปรุง (ทอด/ผัด/ต้ม/นึ่ง/ย่าง) — ค่าอ้างอิงต่อ 100g เนื้อสุก: อกไก่ไม่หนัง 165, ไก่มีหนัง 230, หมูสันนอก 240, หมูสามชั้น 520, หมูกรอบ 550, เนื้อวัว 250, ปลานึ่ง/ต้ม 120-150, ปลาทอด 200-250, กุ้ง 100, เต้าหู้ 80-120
-   - ข้าวสวย 1 ทัพพี ≈ 80g ≈ 100 kcal · ข้าวเหนียว 1 กำ ≈ 90g ≈ 210 kcal · เส้นก๋วยเตี๋ยว 1 ชาม ≈ 150-200 kcal
-   - ไข่ดาว 110 · ไข่ต้ม 75 · ไข่เจียว 180-250 (น้ำมันเยอะ)
-4. บวก "แคลแฝง" ที่คนมักลืม:
-   - น้ำมันผัด +1-1.5 ชต (120-180 kcal), ของทอด +1.5-2 ชต, เห็นเงามันบนอาหาร = น้ำมันเยอะ
-   - กะทิในแกง 1 ถ้วย +150-250 kcal · น้ำจิ้ม/น้ำราดหวาน 1 ชต +30-60 kcal
-   - เครื่องดื่ม: ดูสี ฟองนม ชั้นครีม — หวานปกติ vs หวานน้อย ต่างกัน ~30-40%, ไข่มุก +100-150
-5. รวมแคลทีละรายการ แล้ว sanity check: ถ้าผลรวมห่างจากค่าฐานข้อมูลของเมนูนั้นเกิน 25% ให้ทบทวนการประมาณปริมาณใหม่ก่อนตอบ
-6. ระบุเมนูไทยให้ถูกต้อง (ผัดกะเพรา ≠ ผัดพริกแกง, ต้มยำน้ำใส ≠ น้ำข้น, ส้มตำไทย ≠ ปูปลาร้า)
-7. ${recentCorrections.length > 0 ? 'เทียบกับที่ผู้ใช้เคยแก้ข้างบน — ถ้าเมนู/ขนาดจานคล้ายกัน ให้เอนไปทางค่าที่ผู้ใช้เคยระบุ' : 'ถ้าไม่แน่ใจมาก ตั้งค่า "confidence": "ต่ำ"'}
+**ขั้นที่ 1 — สแกนหาตัวเทียบขนาด (calibration) ก่อนเสมอ:**
+ช้อนโต๊ะ 15ml (ยาว ~19cm) · ช้อนกลาง ~13cm · ส้อม ~18cm · ตะเกียบ ~23cm · จานข้าว Ø23-25cm · จานเล็ก Ø18cm · ชามก๋วยเตี๋ยว Ø18-20cm ลึก 7-8cm · กล่องโฟม/กล่องข้าว 15×20cm · ถุงแกง ~300-400ml · แก้วพลาสติกร้านชา 16oz(470ml)/22oz(650ml) · กระป๋อง 325ml · มือถือ ~15cm · มือผู้ใหญ่กว้าง ~9cm
+→ ระบุว่าใช้อะไรเทียบ ถ้าไม่มีตัวเทียบเลย ให้สมมติจานมาตรฐาน Ø23cm และลด confidence ลง
 
-คุณเขียนการคิดสั้นๆ ก่อนได้ (ห้ามใช้เครื่องหมายปีกกาในส่วนการคิด) แต่ต้องจบด้วย JSON โครงสร้างนี้เป็นก้อนสุดท้ายเสมอ ห้ามมี markdown ห้าม backtick:
+**ขั้นที่ 2 — ประเมินปริมาณด้วยเรขาคณิต:**
+- ข้าวในจาน: ดูสัดส่วนพื้นที่จานที่ข้าวกิน + ความสูงกอง — เต็มจานแบน ~250g(300kcal), ครึ่งจาน ~150g(190kcal), 1 ทัพพีพูน ~80-100g(100-125kcal), ข้าวราดแกงร้านทั่วไปให้ ~200-250g
+- ข้าวเหนียว 1 กำ/กระติ๊บเล็ก ~90-120g (210-280kcal)
+- เส้น: ชามปกติเส้นสุก ~150-200g — เส้นเล็ก/ใหญ่/หมี่ขาว ~170-220kcal, บะหมี่ ~200-250, วุ้นเส้น ~120-160, เส้นหมี่กึ่งสำเร็จ 1 ก้อน ~180-220
+- เนื้อสัตว์: เทียบฝ่ามือ (~100g) หรือนับชิ้น — หมูปิ้ง 1 ไม้ ~90-130kcal, ไก่ย่าง 1 น่อง ~150, ไก่ทอด 1 ชิ้นใหญ่ ~250-350, ลูกชิ้น 1 ลูก ~25-35, หมูกรอบ 1 ชิ้น ~60-80, กุ้ง 1 ตัวกลาง ~15-20, ไส้กรอก 1 ชิ้น ~130-180
+- ไข่: ดาว 110 · ต้ม/ตุ๋น 75 · เจียว 180-250 · ไข่ข้น 150-200 · ไข่เค็มครึ่งลูก ~60
+
+**ขั้นที่ 3 — ค่าพลังงานต่อ 100g ตามวิธีปรุง (เนื้อสุก):**
+อกไก่ไม่หนัง 165 · ไก่มีหนัง 230 · น่อง/สะโพกไก่ 210 · หมูสันนอก 240 · หมูสับผัด 300 · หมูสามชั้น 520 · หมูกรอบ 550 · เนื้อวัว 250 · ตับ 170 · ปลานึ่ง/ต้ม 120-150 · ปลาทอด 200-250 · ปลาดุกย่าง 180 · กุ้ง 100 · ปลาหมึก 90 · เต้าหู้ขาว 80 · เต้าหู้ทอด 270 · ผักลวก/สด 20-40 · ผักผัดน้ำมัน 70-100
+
+**ขั้นที่ 4 — แคลแฝงที่คนมักลืม (เช็คทุกข้อ):**
+□ น้ำมันผัด: จานผัดทั่วไป +1-1.5 ชต (120-180kcal) — เห็นเงามันวาวบนผัก/เนื้อ = ใส่เต็ม
+□ ของทอด: ซึมน้ำมัน +1.5-2 ชต — แป้งชุบทอดซึมมากกว่าทอดเปล่า ~เท่าตัว
+□ กะทิ: แกงกะทิ 1 ถ้วย +150-250 · ขนมหวานกะทิ +100-200
+□ น้ำจิ้ม/น้ำราด: น้ำจิ้มไก่/บ๊วย 1 ชต +40-60 · น้ำจิ้มซีฟู้ด +10 · น้ำราดข้าวมันไก่ +30 · น้ำปลาหวาน +50
+□ น้ำซุป: ใส ~20-50 ต่อชาม · ต้มยำน้ำข้น +100-150 · น้ำตก/เย็นตาโฟ +50-80
+□ เครื่องดื่ม: สังเกตสี ชั้นครีม ฟองนม วิปครีม — ชานม/กาแฟเย็นหวานปกติ 200-280 · หวานน้อยลด 30-40% · ไข่มุก +100-150 · วิปครีม +80-120 · น้ำเปล่า/ชาดำไม่หวาน 0-5
+□ ข้าวผัด/ข้าวคลุก: ข้าวอมน้ำมัน — บวกเพิ่มจากข้าวเปล่า ~30-40%
+
+**ขั้นที่ 5 — แยกเมนูไทยที่หน้าตาคล้ายกันให้ถูก:**
+ผัดกะเพรา(ใบกะเพรา+พริกกระเทียม) ≠ ผัดพริกแกง(เผ็ดแดง มัน) ≠ คั่วกลิ้ง(แห้ง เครื่องแน่น) · ต้มยำน้ำใส(200) ≠ น้ำข้น(350+) · ส้มตำไทย(200) ≠ ปูปลาร้า(220) ≠ ตำถั่ว/ตำแตง · ข้าวมันไก่ต้ม(650) ≠ ไก่ทอด(750) · ก๋วยเตี๋ยวน้ำ ≠ แห้ง(+น้ำมันกระเทียม ~50-80) ≠ ต้มยำ(+พริกป่น น้ำตาล ถั่ว ~80) · ผัดไทย(550) ≠ ผัดซีอิ๊ว(600) ≠ ราดหน้า(500 น้ำแป้ง) · ข้าวขาหมู(700 หนังมัน) ≠ ข้าวหมูแดง(600)
+
+**ขั้นที่ 6 — ข้อผิดพลาดที่พบบ่อย (อย่าทำ):**
+- ประเมินข้าวน้อยเกินจริง (ร้านไทยให้ข้าวเยอะ) · ลืมน้ำมันในเมนูผัด/ทอด · ลืมน้ำจิ้มข้างจาน · เดาว่าจานเล็กทั้งที่เป็นจานใหญ่ · นับเครื่องดื่มเป็น 0 · ตีเมนู "ดูเฮลตี้" ต่ำเกินไปทั้งที่มีน้ำสลัด/อะโวคาโด/ถั่ว
+
+**ขั้นที่ 7 — ตรวจทานตัวเองก่อนตอบ (บังคับ):**
+1. ผลรวม breakdown ต้องเท่ากับ totalCalories เป๊ะ
+2. เทียบกับค่าอ้างอิง (ผู้ใช้เคยแก้ > คลังผู้ใช้ทุกคน > ฐานข้อมูล) — ถ้าห่างเกิน 25% ให้กลับไปทบทวนปริมาณใหม่ 1 รอบ แล้วเลือกค่าที่มีเหตุผลกว่า
+3. เช็คช่วงสมเหตุสมผล: จานเดียวทั่วไป 300-800 · กับข้าวอย่างเดียว 150-500 · เครื่องดื่ม 0-400 · ของหวาน 150-450 — ถ้าหลุดช่วงต้องมีเหตุผลชัดเจน
+4. protein×4 + carbs×4 + fat×9 ควรใกล้เคียง totalCalories (±15%)
+${recentCorrections.length > 0 ? '5. เทียบกับที่ผู้ใช้เคยแก้ — เมนู/ร้าน/ขนาดจานคล้ายกัน ให้เอนไปทางค่าที่ผู้ใช้ระบุ' : '5. ถ้าตัวเทียบขนาดไม่ชัด ตั้ง confidence เป็น "ต่ำ" อย่างตรงไปตรงมา'}
+
+คุณเขียนการคิดทีละขั้นก่อนได้ (แนะนำให้ทำ — ห้ามใช้เครื่องหมายปีกกาในส่วนการคิด) แต่ต้องจบด้วย JSON โครงสร้างนี้เป็นก้อนสุดท้ายเสมอ ห้ามมี markdown ห้าม backtick:
 {
   "foods": ["ชื่ออาหารแต่ละอย่าง พร้อมปริมาณโดยประมาณ เช่น 'ข้าวสวย 1 ทัพพี', 'ไก่ทอด 2 ชิ้น'"],
   "breakdown": [{"item": "ข้าวสวย ~160g", "kcal": 200}, {"item": "น้ำมันผัด ~1.5 ชต", "kcal": 160}],
@@ -94,7 +140,7 @@ ${buildDictHint()}
 }`;
 
       const text = await callClaude({
-        max_tokens: 2500,
+        max_tokens: 3000,
         messages: [{
           role: 'user',
           content: [
@@ -132,6 +178,20 @@ ${buildDictHint()}
     e.target.value = '';
   };
 
+  // แก้รายการย่อย — แคลรวมคำนวณใหม่จากผลบวกเสมอ
+  const sumBreakdown = (bd) => bd.reduce((s, b) => s + (parseInt(b.kcal) || 0), 0);
+  const updateBreakdown = (i, patch) => {
+    const bd = result.breakdown.map((b, idx) => (idx === i ? { ...b, ...patch } : b));
+    setResult({ ...result, breakdown: bd, totalCalories: sumBreakdown(bd) });
+  };
+  const removeBreakdownItem = (i) => {
+    const bd = result.breakdown.filter((_, idx) => idx !== i);
+    setResult({ ...result, breakdown: bd, totalCalories: sumBreakdown(bd) });
+  };
+  const addBreakdownItem = () => {
+    setResult({ ...result, breakdown: [...(result.breakdown || []), { item: '', kcal: '' }] });
+  };
+
   // ประมาณแคลจาก "ชื่ออาหาร" — ใช้ตอนพิมพ์เอง หรือตอนแก้ชื่อแล้วให้คำนวณใหม่
   // existing = ผลเดิม (เก็บรูปไว้ อัปเดตเฉพาะตัวเลข)
   const estimateFromName = async (name, existing = null) => {
@@ -150,9 +210,9 @@ ${buildDictHint()}
           role: 'user',
           content: `คุณคือนักโภชนาการคลินิกที่เชี่ยวชาญอาหารไทย ผู้ใช้พิมพ์ชื่ออาหารว่า "${q}"
 ประเมินจากปริมาณมาตรฐาน 1 จาน/ชาม/แก้ว (ถ้าผู้ใช้ระบุปริมาณ/ขนาด/ระดับหวานมาด้วย ให้ใช้ตามนั้นเคร่งครัด)
-${allergyContext}
+${allergyContext}${communityHint()}
 
-**ฐานข้อมูลอาหารไทย (ใช้เป็นค่าอ้างอิงหลัก ถ้าตรงกับเมนู):**
+**ฐานข้อมูลอาหารไทย (ใช้เป็นค่าอ้างอิงหลัก ถ้าตรงกับเมนู — แต่ถ้าเมนูมีในคลังผู้ใช้ทุกคนข้างบน ให้ค่านั้นสำคัญกว่า):**
 ${buildDictHint()}
 
 **วิธีคิด:**
@@ -401,29 +461,54 @@ ${buildDictHint()}
               </div>
 
               <div className="grid grid-cols-3 gap-2 mb-4">
-                <Macro icon={<Leaf size={14} />} label="โปรตีน" value={result.protein} tone={PALETTE.sage} />
-                <Macro icon={<Wheat size={14} />} label="คาร์บ" value={result.carbs} tone={PALETTE.gold} />
-                <Macro icon={<Droplet size={14} />} label="ไขมัน" value={result.fat} tone={PALETTE.coral} />
+                <Macro icon={<Leaf size={14} />} label="โปรตีน" value={result.protein} tone={PALETTE.sage}
+                  onChange={(v) => setResult({ ...result, protein: v === '' ? 0 : parseInt(v) })} />
+                <Macro icon={<Wheat size={14} />} label="คาร์บ" value={result.carbs} tone={PALETTE.gold}
+                  onChange={(v) => setResult({ ...result, carbs: v === '' ? 0 : parseInt(v) })} />
+                <Macro icon={<Droplet size={14} />} label="ไขมัน" value={result.fat} tone={PALETTE.coral}
+                  onChange={(v) => setResult({ ...result, fat: v === '' ? 0 : parseInt(v) })} />
               </div>
 
-              {/* รายละเอียดแคลแยกชิ้น */}
-              {Array.isArray(result.breakdown) && result.breakdown.length > 0 && (
+              {/* รายละเอียดแคลแยกชิ้น — แก้/ลบ/เพิ่มได้ แคลรวมอัปเดตอัตโนมัติ */}
+              {Array.isArray(result.breakdown) && (
                 <div className="rounded-2xl p-3 mb-3" style={{ backgroundColor: PALETTE.shell }}>
-                  <div className="font-accent text-xs mb-2" style={{ color: PALETTE.gold }}>
-                    คิดมาจากอะไรบ้าง
+                  <div className="font-accent text-xs mb-2 flex items-center justify-between" style={{ color: PALETTE.gold }}>
+                    <span>คิดมาจากอะไรบ้าง · แก้ได้เลย</span>
+                    <Pencil size={10} color={PALETTE.muted} />
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     {result.breakdown.map((b, i) => (
-                      <div key={i} className="flex items-baseline justify-between gap-2">
-                        <div className="font-body text-xs flex-1" style={{ color: PALETTE.forest }}>
-                          {b.item}
-                        </div>
-                        <div className="font-display text-xs font-semibold whitespace-nowrap" style={{ color: PALETTE.sageDark }}>
-                          {b.kcal} kcal
-                        </div>
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          value={b.item || ''}
+                          onChange={e => updateBreakdown(i, { item: e.target.value })}
+                          placeholder="ชื่อรายการ"
+                          className="font-body text-xs flex-1 min-w-0 bg-transparent border-b border-dashed pb-0.5"
+                          style={{ color: PALETTE.forest, borderColor: PALETTE.mist }}
+                        />
+                        <input
+                          value={b.kcal ?? ''}
+                          onChange={e => updateBreakdown(i, { kcal: e.target.value.replace(/\D/g, '') })}
+                          inputMode="numeric"
+                          className="font-display text-xs font-semibold w-12 text-right bg-transparent border-b border-dashed pb-0.5"
+                          style={{ color: PALETTE.sageDark, borderColor: PALETTE.mist }}
+                        />
+                        <span className="font-body text-tiny" style={{ color: PALETTE.muted }}>kcal</span>
+                        <button onClick={() => removeBreakdownItem(i)}
+                          className="smooth-tap w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ color: PALETTE.coral }}
+                        >
+                          <X size={12} />
+                        </button>
                       </div>
                     ))}
                   </div>
+                  <button onClick={addBreakdownItem}
+                    className="smooth-tap mt-2 font-body text-tiny flex items-center gap-1"
+                    style={{ color: PALETTE.sageDark }}
+                  >
+                    <Plus size={11} /> เพิ่มรายการ (เช่น น้ำจิ้มที่น้องไกด์มองไม่เห็น)
+                  </button>
                 </div>
               )}
 
@@ -648,14 +733,25 @@ function HealthScoreBadge({ score }) {
   );
 }
 
-function Macro({ icon, label, value, tone }) {
+function Macro({ icon, label, value, tone, onChange }) {
   return (
     <div className="rounded-xl p-2.5 text-center" style={{ backgroundColor: PALETTE.shell }}>
       <div className="flex items-center justify-center gap-1 mb-0.5" style={{ color: tone }}>
         {icon}<span className="font-accent text-tiny">{label}</span>
       </div>
-      <div className="font-display text-base font-bold" style={{ color: PALETTE.forest }}>
-        {value}<span className="text-tiny font-normal" style={{ color: PALETTE.muted }}>g</span>
+      <div className="font-display text-base font-bold flex items-baseline justify-center" style={{ color: PALETTE.forest }}>
+        {onChange ? (
+          <input
+            value={value ?? ''}
+            onChange={e => onChange(e.target.value.replace(/\D/g, ''))}
+            inputMode="numeric"
+            className="w-10 text-center bg-transparent border-b border-dashed font-display text-base font-bold"
+            style={{ color: PALETTE.forest, borderColor: PALETTE.mist }}
+          />
+        ) : (
+          <span>{value}</span>
+        )}
+        <span className="text-tiny font-normal" style={{ color: PALETTE.muted }}>g</span>
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ import { calcBMI, bmiCategory, exportMemory, handleImportMemory } from '../utils
 import { PERSONALITIES, resolvePersonality } from '../data/personalities';
 import LogoMark from './LogoMark';
 
-export default function Profile({ profile, privacy, setPrivacy, setProfile, reset, onModalChange, personality, setPersonality, corrections, clearCorrections, addCorrection, theme, setTheme }) {
+export default function Profile({ profile, privacy, setPrivacy, setProfile, reset, onModalChange, personality, setPersonality, corrections, clearCorrections, addCorrection, theme, setTheme, shareCommunity, setShareCommunity }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(profile);
   const bmi = calcBMI(profile.weight, profile.height);
@@ -328,6 +328,23 @@ export default function Profile({ profile, privacy, setPrivacy, setProfile, rese
             onChange={(e) => handleImportMemory(e, addCorrection, corrections)}
             className="hidden"
           />
+
+          {/* คลังความจำส่วนกลาง — รวมพลังผู้ใช้ทุกคน */}
+          <div className="mt-3 pt-3 flex items-center justify-between gap-3"
+            style={{ borderTop: `1px solid ${PALETTE.mist}` }}
+          >
+            <div className="flex-1">
+              <div className="font-body text-sm font-medium flex items-center gap-1.5" style={{ color: PALETTE.forest }}>
+                🌍 ร่วมคลังความจำส่วนกลาง
+              </div>
+              <div className="font-body text-tiny mt-0.5 leading-relaxed" style={{ color: PALETTE.muted }}>
+                แชร์เฉพาะ "ชื่อเมนู + แคล" ที่คุณแก้ แบบไม่ระบุตัวตน
+                เพื่อให้น้องไกด์ของทุกคนทายแม่นขึ้นเรื่อยๆ
+              </div>
+            </div>
+            <Toggle on={shareCommunity !== false}
+              onChange={() => setShareCommunity?.(!(shareCommunity !== false))} />
+          </div>
         </div>
 
         {/* Edit profile */}
@@ -348,7 +365,7 @@ export default function Profile({ profile, privacy, setPrivacy, setProfile, rese
         <div className="text-center mt-6 anim-fadeIn">
           <LogoMark size={32} />
           <div className="font-display text-xs mt-2" style={{ color: PALETTE.muted }}>
-            GINYARAIDEE · v2.8
+            GINYARAIDEE · v2.9
           </div>
         </div>
       </div>

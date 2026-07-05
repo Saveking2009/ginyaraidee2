@@ -97,6 +97,16 @@ vercel
    - **Value:** `sk-ant-xxxxxx` (key จริงของคุณ)
    - **Environment:** Production + Preview + Development ✅
 
+### (ทางเลือก) เปิดคลังความจำส่วนกลาง 🌍
+
+ฟีเจอร์ "รวมการแก้แคลของผู้ใช้ทุกคน" ต้องมี Redis ฟรีจาก Upstash:
+
+1. ใน Vercel Dashboard → โปรเจกต์ → แท็บ **Storage** → **Create Database** → เลือก **Upstash (Redis)** → Free plan
+2. กด **Connect** เข้ากับโปรเจกต์ — Vercel จะใส่ env `KV_REST_API_URL` และ `KV_REST_API_TOKEN` ให้อัตโนมัติ
+3. Redeploy 1 ครั้ง — เสร็จ!
+
+ถ้ายังไม่ตั้งค่า แอปทำงานปกติทุกอย่าง (แค่ไม่มีข้อมูลรวมจากผู้ใช้คนอื่น)
+
 ### Deploy ครั้งต่อไป
 
 ```bash

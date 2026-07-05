@@ -1,5 +1,5 @@
 // sw.js — GINYARAIDEE Service Worker
-const CACHE = 'ginyaraidee-v5';
+const CACHE = 'ginyaraidee-v6';
 const PRECACHE = [
   '/',
   '/index.html',

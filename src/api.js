@@ -25,6 +25,33 @@ export async function callClaude(payload, { timeoutMs = 60000 } = {}) {
   }
 }
 
+/* ============================================================
+   Community Food Memory — คลังความจำรวมจากผู้ใช้ทุกคน
+   ============================================================ */
+
+// ดึงค่าเฉลี่ยแคลจากผู้ใช้ทุกคน (ล้มเหลว = คืน array ว่าง ไม่พังแอป)
+export async function fetchCommunityFood() {
+  try {
+    const res = await fetch('/api/community');
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => null);
+    return Array.isArray(data?.items) ? data.items : [];
+  } catch {
+    return [];
+  }
+}
+
+// ส่งการแก้ไขเข้าคลังกลาง (fire-and-forget — ไม่รอผล ไม่พังแอป)
+export function pushCommunityCorrections(corrections) {
+  try {
+    fetch('/api/community', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ corrections }),
+    }).catch(() => {});
+  } catch {}
+}
+
 // ดึง JSON ออกจากคำตอบ AI — ทนต่อ ```json fence และข้อความปนหน้า/หลัง
 export function parseAIJson(text) {
   const cleaned = text.replace(/```json|```/g, '').trim();

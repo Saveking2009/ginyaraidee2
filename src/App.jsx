@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PALETTE, FONT_CSS } from './theme';
 import { load, save, calcStreak } from './utils';
+import { pushCommunityCorrections } from './api';
 import IntroSplash from './components/IntroSplash';
 import Onboarding from './components/Onboarding';
 import Dashboard from './components/Dashboard';
@@ -24,6 +25,7 @@ const STORAGE_KEYS = [
   'gyn_profile', 'gyn_foodlog', 'gyn_chat', 'gyn_meds', 'gyn_privacy', 'gyn_persona',
   'gyn_water', 'gyn_exercises', 'gyn_sleep', 'gyn_vitals', 'gyn_news', 'gyn_corrections',
   'gyn_weights', 'gyn_voice', 'gyn_points', 'gyn_tasks', 'gyn_mascot', 'gyn_theme',
+  'gyn_share', 'gyn_community',
   'gyn_game_best', 'gyn_game_plays', // เผื่อค้างจากเวอร์ชันเก่า
 ];
 
@@ -73,6 +75,7 @@ export default function App() {
   const [updateInfo, setUpdateInfo] = useState(null);
   const [showIntro, setShowIntro] = useState(true); // วิดีโอเปิดตัว
   const [themeMode, _setThemeMode] = useState(() => load('gyn_theme', 'auto')); // light | dark | auto
+  const [shareCommunity, _setShare] = useState(() => load('gyn_share', true)); // แชร์การแก้แคลเข้าคลังกลาง
 
   // Persist helper — รองรับทั้งค่าใหม่ตรงๆ และ function(prev) เพื่อกัน state ค้าง
   // (เช่นตอน import ความจำหลายรายการติดกัน)
@@ -99,6 +102,15 @@ export default function App() {
   const setCorrections = makeSetter('gyn_corrections', _setCorrections, (v) => v.slice(-50));
   const setWeights = makeSetter('gyn_weights', _setWeights);
   const setThemeMode = (v) => { _setThemeMode(v); save('gyn_theme', v); };
+  const setShareCommunity = (v) => { _setShare(v); save('gyn_share', v); };
+
+  // บันทึกการแก้ไขของผู้ใช้ + ส่งเข้าคลังกลางแบบไม่ระบุตัวตน (เฉพาะชื่อเมนู+แคล)
+  const addCorrection = (c) => {
+    setCorrections(prev => [...prev, c]);
+    if (shareCommunity && !c.imported && c.realName && c.realCal > 0) {
+      pushCommunityCorrections([{ realName: c.realName, realCal: c.realCal }]);
+    }
+  };
 
   // สลับธีมสว่าง/มืด — 'auto' ตามการตั้งค่าเครื่อง
   useEffect(() => {
@@ -238,7 +250,7 @@ export default function App() {
               removeFood={(id) => setFoodLog(prev => prev.filter(x => x.id !== id))}
               editFood={(id, patch) => setFoodLog(prev => prev.map(x => x.id === id ? { ...x, ...patch } : x))}
               corrections={corrections}
-              addCorrection={(c) => setCorrections(prev => [...prev, c])}
+              addCorrection={addCorrection}
             />
           )}
           {screen === 'chat' && (
@@ -270,8 +282,9 @@ export default function App() {
               personality={personality} setPersonality={setPersonality}
               corrections={corrections}
               clearCorrections={() => setCorrections([])}
-              addCorrection={(c) => setCorrections(prev => [...prev, c])}
+              addCorrection={addCorrection}
               theme={themeMode} setTheme={setThemeMode}
+              shareCommunity={shareCommunity} setShareCommunity={setShareCommunity}
             />
           )}
         </div>
