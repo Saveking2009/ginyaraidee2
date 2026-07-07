@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PALETTE, FONT_CSS } from './theme';
 import { load, save, calcStreak } from './utils';
 import { pushCommunityCorrections } from './api';
+import { checkDueReminders } from './notifications';
 import IntroSplash from './components/IntroSplash';
 import Onboarding from './components/Onboarding';
 import Dashboard from './components/Dashboard';
@@ -11,6 +12,7 @@ import ChatScreen from './components/ChatScreen';
 import MentalHealth from './components/MentalHealth';
 import Profile from './components/Profile';
 import HealthHub from './components/HealthHub';
+import Reminders from './components/Reminders';
 import DailyTasks from './components/DailyTasks';
 import PrintModal from './components/PrintModal';
 import { BottomNav, QuickRecordSheet, MoreMenu, UpdateBanner } from './components/Nav';
@@ -25,8 +27,14 @@ const STORAGE_KEYS = [
   'gyn_profile', 'gyn_foodlog', 'gyn_chat', 'gyn_meds', 'gyn_privacy', 'gyn_persona',
   'gyn_water', 'gyn_exercises', 'gyn_sleep', 'gyn_vitals', 'gyn_news', 'gyn_corrections',
   'gyn_weights', 'gyn_voice', 'gyn_points', 'gyn_tasks', 'gyn_mascot', 'gyn_theme',
-  'gyn_share', 'gyn_community',
+  'gyn_share', 'gyn_community', 'gyn_reminders', 'gyn_reminder_fired', 'gyn_tts_notice_off',
   'gyn_game_best', 'gyn_game_plays', // เผื่อค้างจากเวอร์ชันเก่า
+];
+
+const DEFAULT_REMINDERS = [
+  { id: 'r-breakfast', time: '08:00', label: 'อย่าลืมถ่ายรูปมื้อเช้านะ 📸', enabled: true },
+  { id: 'r-lunch', time: '12:30', label: 'มื้อเที่ยงแล้ว ถ่ายรูปก่อนกิน! 🍽️', enabled: true },
+  { id: 'r-dinner', time: '18:30', label: 'มื้อเย็นวันนี้กินอะไร ถ่ายให้น้องไกด์ดูหน่อย 🌙', enabled: true },
 ];
 
 // พื้นหลังเคลื่อนไหว — ก้อนสีเบลอลอยช้าๆ อยู่หลังเนื้อหาทั้งหมด
@@ -76,6 +84,7 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(true); // วิดีโอเปิดตัว
   const [themeMode, _setThemeMode] = useState(() => load('gyn_theme', 'auto')); // light | dark | auto
   const [shareCommunity, _setShare] = useState(() => load('gyn_share', true)); // แชร์การแก้แคลเข้าคลังกลาง
+  const [reminders, _setReminders] = useState(() => load('gyn_reminders', DEFAULT_REMINDERS));
 
   // Persist helper — รองรับทั้งค่าใหม่ตรงๆ และ function(prev) เพื่อกัน state ค้าง
   // (เช่นตอน import ความจำหลายรายการติดกัน)
@@ -103,6 +112,14 @@ export default function App() {
   const setWeights = makeSetter('gyn_weights', _setWeights);
   const setThemeMode = (v) => { _setThemeMode(v); save('gyn_theme', v); };
   const setShareCommunity = (v) => { _setShare(v); save('gyn_share', v); };
+  const setReminders = makeSetter('gyn_reminders', _setReminders);
+
+  // ตัวจับเวลาแจ้งเตือน — เช็คทุก 20 วิ ว่าถึงเวลาเตือนรายการไหน
+  useEffect(() => {
+    checkDueReminders(reminders);
+    const id = setInterval(() => checkDueReminders(reminders), 20000);
+    return () => clearInterval(id);
+  }, [reminders]);
 
   // บันทึกการแก้ไขของผู้ใช้ + ส่งเข้าคลังกลางแบบไม่ระบุตัวตน (เฉพาะชื่อเมนู+แคล)
   const addCorrection = (c) => {
@@ -276,6 +293,7 @@ export default function App() {
             />
           )}
           {screen === 'mental' && <MentalHealth profile={profile} />}
+          {screen === 'reminders' && <Reminders reminders={reminders} setReminders={setReminders} />}
           {screen === 'profile' && (
             <Profile profile={profile} privacy={privacy} setPrivacy={setPrivacy}
               setProfile={setProfile} reset={reset} onModalChange={setModalOpen}

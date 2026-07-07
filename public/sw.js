@@ -4,7 +4,7 @@
 //   แคชหน้าเก่าที่ชี้ไปไฟล์ JS ของ deploy เก่าที่ถูกลบแล้ว (จอขาว/จอมืด)
 // - ไฟล์ static อื่นๆ: cache-first (เร็ว + ใช้ออฟไลน์ได้)
 // - /api/ และ version.json: ไม่แตะ ให้วิ่งตรงเสมอ
-const CACHE = 'ginyaraidee-v7';
+const CACHE = 'ginyaraidee-v8';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -26,6 +26,19 @@ self.addEventListener('activate', (e) => {
     )
   );
   self.clients.claim();
+});
+
+// กดแจ้งเตือน → เปิด/โฟกัสแอป
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if ('focus' in c) return c.focus();
+      }
+      return clients.openWindow('/');
+    })
+  );
 });
 
 self.addEventListener('fetch', (e) => {

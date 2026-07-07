@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Home, Activity, MessageCircle, MoreHorizontal, Plus, X,
   UtensilsCrossed, GlassWater, Dumbbell, Moon, Stethoscope, Pill,
-  Brain, Printer, User, ChevronRight, Shield, Sparkles, RotateCcw, ListChecks,
+  Brain, Printer, User, ChevronRight, Shield, Sparkles, RotateCcw, ListChecks, Bell,
 } from 'lucide-react';
 import { PALETTE, alpha } from '../theme';
 
@@ -70,7 +70,8 @@ export function QuickRecordSheet({ open, onClose, onChoose }) {
 
 export function MoreMenu({ goto, openPrintModal }) {
   const items = [
-    { id: 'tasks', icon: ListChecks, label: 'ภารกิจประจำวัน', desc: 'ทำภารกิจ สะสมแต้ม ปลูกต้นไม้ 🌱', tone: PALETTE.coral },
+    { id: 'tasks', icon: ListChecks, label: 'ภารกิจประจำวัน', desc: 'ทำภารกิจ สะสมแต้ม แต่งตัวน้องแกะ 🐑', tone: PALETTE.coral },
+    { id: 'reminders', icon: Bell, label: 'แจ้งเตือน', desc: 'ตั้งเวลาเตือนถ่ายรูปข้าว ดื่มน้ำ', tone: '#6BA4D9' },
     { id: 'medicine', icon: Pill, label: 'ตู้ยา', desc: 'จัดการยาและฉลาก', tone: PALETTE.gold },
     { id: 'mental', icon: Brain, label: 'เช็คใจ', desc: 'คัดกรองสุขภาพจิต', tone: PALETTE.sageDark },
     { id: 'print', icon: Printer, label: 'พิมพ์รายงาน', desc: 'ส่งให้แพทย์ หรือบันทึก PDF', tone: PALETTE.sage, isPrint: true },

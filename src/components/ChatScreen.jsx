@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Heart, Send, Phone, RotateCcw, Volume2, VolumeX,
+  Heart, Send, Phone, RotateCcw, Volume2, VolumeX, X,
 } from 'lucide-react';
 import { PALETTE } from '../theme';
 import { calcBMI, load, save } from '../utils';
@@ -14,7 +14,9 @@ export default function ChatScreen({ profile, messages, addMessage, clearMessage
   const [confirmClear, setConfirmClear] = useState(false);
   const [voiceOn, setVoiceOn] = useState(() => load('gyn_voice', false));
   const [speakingIdx, setSpeakingIdx] = useState(null);
+  const [noThaiVoice, setNoThaiVoice] = useState(false);
   const scrollRef = useRef(null);
+  const voicesRef = useRef([]);
   // จำ ts ของข้อความล่าสุดตอนเปิดหน้า — จะได้ไม่อ่านข้อความเก่าซ้ำ
   const lastSpokenTs = useRef(messages[messages.length - 1]?.ts ?? 0);
 
@@ -22,23 +24,71 @@ export default function ChatScreen({ profile, messages, addMessage, clearMessage
 
   const ttsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
+  // รายชื่อเสียงโหลดแบบ async — ต้องรอ event 'voiceschanged' ไม่งั้นได้ลิสต์ว่าง
+  // (สาเหตุที่เสียงเพี้ยนเป็นอังกฤษ: หาเสียงไทยไม่เจอเพราะลิสต์ยังไม่มา)
+  useEffect(() => {
+    if (!ttsSupported) return;
+    const loadVoices = () => { voicesRef.current = window.speechSynthesis.getVoices(); };
+    loadVoices();
+    window.speechSynthesis.addEventListener?.('voiceschanged', loadVoices);
+    return () => window.speechSynthesis.removeEventListener?.('voiceschanged', loadVoices);
+  }, []);
+
+  const findThaiVoice = () => {
+    let voices = voicesRef.current;
+    if (!voices.length) {
+      voices = window.speechSynthesis.getVoices();
+      voicesRef.current = voices;
+    }
+    return {
+      voices,
+      thai: voices.find(v => (v.lang || '').toLowerCase().replace('_', '-').startsWith('th'))
+        || voices.find(v => /thai|ไทย/i.test(v.name || '')),
+    };
+  };
+
   const speak = (text, idx) => {
     if (!ttsSupported) return;
-    window.speechSynthesis.cancel();
+    const synth = window.speechSynthesis;
+    synth.cancel();
     if (speakingIdx === idx) { setSpeakingIdx(null); return; }
-    const u = new SpeechSynthesisUtterance(text.replace(/[🌿✨💛🌟⭐🎉🙏🚑👋😊💪🧸🤝🌷👔]/g, ''));
-    u.lang = 'th-TH';
-    u.rate = 1.0;
-    u.pitch = 1.05;
-    // Try to pick a Thai voice
-    const voices = window.speechSynthesis.getVoices();
-    const thai = voices.find(v => v.lang === 'th-TH' || v.lang.startsWith('th'));
-    if (thai) u.voice = thai;
-    // เคลียร์เฉพาะตอนที่ยังเป็นข้อความเดิม — กัน race เวลาเปลี่ยนไปพูดข้อความใหม่
-    u.onend = () => setSpeakingIdx(cur => (cur === idx ? null : cur));
-    u.onerror = () => setSpeakingIdx(cur => (cur === idx ? null : cur));
+
+    const { voices, thai } = findThaiVoice();
+    // มีรายชื่อเสียงแต่ไม่มีภาษาไทยเลย = เครื่องนี้ต้องติดตั้งเสียงไทยเพิ่ม
+    if (!thai && voices.length > 0 && !load('gyn_tts_notice_off', false)) {
+      setNoThaiVoice(true);
+    }
+
+    // ตัด emoji ออกทั้งหมด + แบ่งข้อความยาวเป็นท่อนสั้นๆ (เครื่องบางรุ่นตัดเสียงกลางคันถ้ายาวเกิน)
+    const clean = text.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, '').trim();
+    const chunks = [];
+    let rest = clean;
+    while (rest.length > 0) {
+      if (rest.length <= 160) { chunks.push(rest); break; }
+      let cut = rest.lastIndexOf(' ', 160);
+      if (cut < 60) cut = 160;
+      chunks.push(rest.slice(0, cut));
+      rest = rest.slice(cut).trim();
+    }
+    if (chunks.length === 0) return;
+
     setSpeakingIdx(idx);
-    window.speechSynthesis.speak(u);
+    // หน่วงนิดเดียวหลัง cancel() — Chrome บางเวอร์ชันจะเงียบถ้า speak ทันที
+    setTimeout(() => {
+      chunks.forEach((chunk, i) => {
+        const u = new SpeechSynthesisUtterance(chunk);
+        u.lang = 'th-TH';
+        u.rate = 1.0;
+        u.pitch = 1.05;
+        if (thai) u.voice = thai;
+        // เคลียร์สถานะเฉพาะตอนที่ยังเป็นข้อความเดิม — กัน race เวลาเปลี่ยนไปพูดข้อความใหม่
+        if (i === chunks.length - 1) {
+          u.onend = () => setSpeakingIdx(cur => (cur === idx ? null : cur));
+        }
+        u.onerror = () => setSpeakingIdx(cur => (cur === idx ? null : cur));
+        window.speechSynthesis.speak(u);
+      });
+    }, 60);
   };
 
   const toggleVoice = () => {
@@ -168,6 +218,25 @@ export default function ChatScreen({ profile, messages, addMessage, clearMessage
           <Phone size={16} />
         </button>
       </div>
+
+      {/* เครื่องไม่มีเสียงภาษาไทย — บอกวิธีติดตั้ง */}
+      {noThaiVoice && (
+        <div className="px-4 py-2.5 flex items-start gap-2 anim-fadeIn"
+          style={{ backgroundColor: PALETTE.coralSoft }}
+        >
+          <div className="font-body text-xs flex-1 leading-relaxed" style={{ color: PALETTE.coral }}>
+            🔇 เครื่องนี้ยังไม่มี "เสียงภาษาไทย" ติดตั้งไว้ เสียงเลยเพี้ยนเป็นสำเนียงอังกฤษ —
+            Android: ติดตั้งแอป Google Text-to-Speech แล้วเพิ่มภาษาไทย ·
+            iPhone: ตั้งค่า → การช่วยการเข้าถึง → เนื้อหาที่พูด → เสียง ·
+            Windows: Settings → Time & Language → Language เพิ่ม "ไทย" พร้อม Speech
+          </div>
+          <button onClick={() => { setNoThaiVoice(false); save('gyn_tts_notice_off', true); }}
+            className="flex-shrink-0" style={{ color: PALETTE.coral }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 no-scrollbar">
         {messages.length === 0 && (
