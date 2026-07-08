@@ -71,3 +71,105 @@ export function playMelody(id, volume = 0.7) {
     });
   } catch {}
 }
+
+/* ============================================================
+   เสียงที่ผู้ใช้อัปโหลดเอง — เก็บไฟล์ลง IndexedDB
+   (ไฟล์เสียงใหญ่เกินกว่าจะเก็บใน localStorage)
+   id ของเสียงกำหนดเอง = "custom:xxxx"
+   ============================================================ */
+
+const DB_NAME = 'gyn_sounds';
+const STORE = 'sounds';
+export const CUSTOM_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+
+function idb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(STORE)) {
+        req.result.createObjectStore(STORE, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function saveCustomSound(name, file) {
+  const buf = await file.arrayBuffer();
+  const id = 'custom:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const db = await idb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put({ id, name, buf, type: file.type });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+  return { id, name };
+}
+
+export async function listCustomSounds() {
+  try {
+    const db = await idb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = () => resolve((req.result || []).map(s => ({ id: s.id, name: s.name })));
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteCustomSound(id) {
+  try {
+    const db = await idb();
+    await new Promise((resolve) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).delete(id);
+      tx.oncomplete = resolve;
+      tx.onerror = resolve;
+    });
+    delete _bufCache[id];
+  } catch {}
+}
+
+async function getCustomBuf(id) {
+  const db = await idb();
+  return await new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).get(id);
+    req.onsuccess = () => resolve(req.result?.buf || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// เล่นเสียงตาม id — เป็นเมโลดี้ในตัว หรือไฟล์ที่ผู้ใช้อัปโหลด (custom:)
+const _bufCache = {};
+export async function playSound(id, volume = 0.7) {
+  if (!id || id === 'off') return;
+  if (!String(id).startsWith('custom:')) {
+    playMelody(id, volume);
+    return;
+  }
+  const ac = getCtx();
+  if (!ac) return;
+  try {
+    let buffer = _bufCache[id];
+    if (!buffer) {
+      const raw = await getCustomBuf(id);
+      if (!raw) return;
+      buffer = await ac.decodeAudioData(raw.slice(0)); // slice: decode ทำให้ buffer เดิมใช้ไม่ได้
+      _bufCache[id] = buffer;
+    }
+    const src = ac.createBufferSource();
+    src.buffer = buffer;
+    const g = ac.createGain();
+    g.gain.value = Math.max(0, Math.min(1, volume));
+    src.connect(g);
+    g.connect(ac.destination);
+    src.start();
+    src.stop(ac.currentTime + Math.min(buffer.duration, 8)); // จำกัด ~8 วิ กันไฟล์ยาว
+  } catch {}
+}

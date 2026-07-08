@@ -1,10 +1,15 @@
-import { load, save, todayKey } from './utils';
-import { playMelody, DEFAULT_SOUND } from './sound';
+import { load, todayKey } from './utils';
+import { playSound, DEFAULT_SOUND } from './sound';
 
-// เล่นเสียงแจ้งเตือนตามที่ผู้ใช้ตั้งไว้
-export function playReminderSound() {
-  const s = load('gyn_sound', DEFAULT_SOUND);
-  if (s && s.enabled !== false) playMelody(s.melody, s.volume ?? 0.7);
+// เล่นเสียง + สั่น ตามที่ตั้งไว้ในแต่ละรายการ (ระดับเสียงรวมมาจาก gyn_sound)
+export function playReminderSound(reminder) {
+  const g = load('gyn_sound', DEFAULT_SOUND);
+  const volume = g.volume ?? 0.7;
+  const melody = reminder?.sound ?? 'chime';
+  if (melody && melody !== 'off') playSound(melody, volume);
+  if (reminder?.vibrate && typeof navigator !== 'undefined' && navigator.vibrate) {
+    try { navigator.vibrate([200, 100, 200, 100, 300]); } catch {}
+  }
 }
 
 /* ============================================================
@@ -22,6 +27,7 @@ export async function showReminderNotification(reminder) {
       badge: '/icon-192.png',
       tag: 'gyn-reminder-' + reminder.id, // แทนที่อันเก่าของ id เดียวกัน
     };
+    if (reminder.vibrate) opts.vibrate = [200, 100, 200, 100, 300];
     // ผ่าน service worker ก่อน (จำเป็นบน Android/PWA) — ไม่มีค่อย fallback
     const reg = await navigator.serviceWorker?.getRegistration?.();
     if (reg?.showNotification) {

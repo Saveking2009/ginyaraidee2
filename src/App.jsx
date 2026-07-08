@@ -33,9 +33,9 @@ const STORAGE_KEYS = [
 ];
 
 const DEFAULT_REMINDERS = [
-  { id: 'r-breakfast', time: '08:00', label: 'อย่าลืมถ่ายรูปมื้อเช้านะ 📸', enabled: true },
-  { id: 'r-lunch', time: '12:30', label: 'มื้อเที่ยงแล้ว ถ่ายรูปก่อนกิน! 🍽️', enabled: true },
-  { id: 'r-dinner', time: '18:30', label: 'มื้อเย็นวันนี้กินอะไร ถ่ายให้น้องไกด์ดูหน่อย 🌙', enabled: true },
+  { id: 'r-breakfast', time: '08:00', label: 'อย่าลืมถ่ายรูปมื้อเช้านะ 📸', enabled: true, sound: 'chime', vibrate: false },
+  { id: 'r-lunch', time: '12:30', label: 'มื้อเที่ยงแล้ว ถ่ายรูปก่อนกิน! 🍽️', enabled: true, sound: 'happy', vibrate: false },
+  { id: 'r-dinner', time: '18:30', label: 'มื้อเย็นวันนี้กินอะไร ถ่ายให้น้องไกด์ดูหน่อย 🌙', enabled: true, sound: 'bell', vibrate: false },
 ];
 
 // พื้นหลังเคลื่อนไหว — ก้อนสีเบลอลอยช้าๆ อยู่หลังเนื้อหาทั้งหมด

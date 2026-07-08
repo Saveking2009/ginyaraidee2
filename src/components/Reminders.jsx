@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
-import { Bell, BellOff, Plus, Trash2, Send, Music, Volume2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bell, BellOff, Plus, Trash2, Send, Music, Volume2, Upload, Play, Smartphone, X } from 'lucide-react';
 import { PALETTE, alpha } from '../theme';
 import { showReminderNotification } from '../notifications';
 import { load, save } from '../utils';
-import { MELODIES, DEFAULT_SOUND, playMelody, primeAudio } from '../sound';
+import {
+  MELODIES, DEFAULT_SOUND, playSound, primeAudio,
+  listCustomSounds, saveCustomSound, deleteCustomSound, CUSTOM_MAX_BYTES,
+} from '../sound';
 
 /* ============================================================
    แจ้งเตือนประจำวัน 🔔
-   - ตั้งเวลาเองได้ แก้ข้อความเองได้ เปิด/ปิดทีละรายการ
-   - ใช้ Notification ของเครื่อง — ต้องกดอนุญาตก่อน
-   - ตัวจับเวลาอยู่ใน App.jsx (ทำงานตอนแอปเปิดอยู่/พื้นหลัง)
+   - ตั้งเวลา + ข้อความ + เสียง + สั่น แยกได้ทีละรายการ
+   - อัปโหลดเสียงจากเครื่องมาใช้เองได้ (เก็บใน IndexedDB)
+   - ตัวจับเวลาอยู่ใน App.jsx (ทำงานตอนแอปเปิดอยู่)
    ============================================================ */
 
 const PRESETS = [
@@ -24,27 +27,31 @@ const newId = () => 'r' + Date.now() + Math.random().toString(36).slice(2, 5);
 
 export default function Reminders({ reminders, setReminders }) {
   const supported = typeof window !== 'undefined' && 'Notification' in window;
+  const canVibrate = typeof navigator !== 'undefined' && !!navigator.vibrate;
   const [perm, setPerm] = useState(supported ? Notification.permission : 'unsupported');
   const [testSent, setTestSent] = useState(false);
-  const [sound, setSound] = useState(() => ({ ...DEFAULT_SOUND, ...load('gyn_sound', {}) }));
+  const [volume, setVolume] = useState(() => (load('gyn_sound', DEFAULT_SOUND).volume ?? 0.7));
+  const [customs, setCustoms] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
-  const updateSound = (patch) => {
-    const next = { ...sound, ...patch };
-    setSound(next);
-    save('gyn_sound', next);
+  useEffect(() => { listCustomSounds().then(setCustoms); }, []);
+
+  const saveVolume = (v) => {
+    setVolume(v);
+    save('gyn_sound', { ...load('gyn_sound', DEFAULT_SOUND), volume: v });
   };
-  // เลือกเพลง = เล่นตัวอย่างทันที (และปลุกระบบเสียงไว้ให้เด้งเองได้ทีหลัง)
-  const pickMelody = (id) => {
-    primeAudio();
-    updateSound({ melody: id, enabled: id !== 'off' });
-    if (id !== 'off') playMelody(id, sound.volume);
-  };
+
+  // รวมเสียงในตัว + เสียงที่อัปโหลด สำหรับ dropdown
+  const soundOptions = [
+    ...Object.entries(MELODIES).map(([id, m]) => ({ id, label: `${m.emoji} ${m.label}` })),
+    ...customs.map(c => ({ id: c.id, label: `🎵 ${c.name}` })),
+  ];
+  const soundLabel = (id) => soundOptions.find(o => o.id === id)?.label || '🔔 กระดิ่งใส';
+
+  const preview = (id) => { primeAudio(); playSound(id, volume); };
 
   const requestPermission = async () => {
-    try {
-      const p = await Notification.requestPermission();
-      setPerm(p);
-    } catch {}
+    try { setPerm(await Notification.requestPermission()); } catch {}
   };
 
   const update = (id, patch) =>
@@ -56,12 +63,41 @@ export default function Reminders({ reminders, setReminders }) {
       time: preset?.time || '12:00',
       label: preset?.label || 'อย่าลืมถ่ายรูปข้าวนะ 📸',
       enabled: true,
+      sound: 'chime',
+      vibrate: false,
     }]);
+
+  const onUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('audio/')) { alert('กรุณาเลือกไฟล์เสียงเท่านั้น (mp3, wav, m4a ...)'); return; }
+    if (file.size > CUSTOM_MAX_BYTES) { alert('ไฟล์ใหญ่เกินไป (จำกัด 5MB) ลองเลือกไฟล์สั้นๆ นะคะ'); return; }
+    setUploading(true);
+    try {
+      const name = file.name.replace(/\.[^.]+$/, '').slice(0, 24);
+      const saved = await saveCustomSound(name, file);
+      setCustoms(await listCustomSounds());
+      preview(saved.id); // ฟังทันทีหลังอัปโหลด
+    } catch {
+      alert('บันทึกเสียงไม่สำเร็จ ลองไฟล์อื่นนะคะ');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeCustom = async (id) => {
+    await deleteCustomSound(id);
+    setCustoms(await listCustomSounds());
+    // รายการที่ใช้เสียงนี้อยู่ ให้กลับไปใช้กระดิ่ง
+    setReminders(prev => prev.map(r => (r.sound === id ? { ...r, sound: 'chime' } : r)));
+  };
 
   const sendTest = async () => {
     primeAudio();
     await showReminderNotification({ id: 'test', label: 'แจ้งเตือนทำงานแล้ว! เจอกันตามเวลาที่ตั้งไว้นะคะ 🌿' });
-    if (sound.enabled !== false) playMelody(sound.melody, sound.volume);
+    playSound('chime', volume);
+    if (canVibrate) { try { navigator.vibrate([200, 100, 200]); } catch {} }
     setTestSent(true);
     setTimeout(() => setTestSent(false), 3000);
   };
@@ -85,7 +121,7 @@ export default function Reminders({ reminders, setReminders }) {
           แจ้งเตือน
         </h1>
         <p className="font-body text-sm mb-5" style={{ color: PALETTE.muted }}>
-          ตั้งเวลาเตือนตัวเอง แก้ข้อความได้ตามใจ
+          ตั้งเวลา ข้อความ เสียง และการสั่น แยกได้ทุกรายการ
         </p>
 
         {/* สถานะการอนุญาต */}
@@ -151,49 +187,63 @@ export default function Reminders({ reminders, setReminders }) {
           </button>
         )}
 
-        {/* ตั้งค่าเสียงแจ้งเตือน */}
+        {/* ตั้งค่าเสียงรวม + อัปโหลดเสียงเอง */}
         <div className="rounded-2xl p-4 mb-4 organic-shadow" style={{ backgroundColor: PALETTE.paper }}>
-          <div className="font-display font-semibold mb-1 flex items-center gap-2" style={{ color: PALETTE.sageDeep }}>
-            <Music size={16} color={PALETTE.gold} /> เสียงแจ้งเตือน
-          </div>
-          <p className="font-body text-xs mb-3" style={{ color: PALETTE.muted }}>
-            แตะเพื่อเลือกและฟังตัวอย่าง
-          </p>
-
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {Object.entries(MELODIES).map(([id, m]) => {
-              const active = sound.melody === id && (id === 'off' ? sound.enabled === false : sound.enabled !== false);
-              return (
-                <button key={id} onClick={() => pickMelody(id)}
-                  className="smooth-tap rounded-xl py-2.5 flex flex-col items-center gap-1"
-                  style={{
-                    backgroundColor: active ? PALETTE.deep : PALETTE.shell,
-                    color: active ? 'white' : PALETTE.forest,
-                    border: `1px solid ${active ? PALETTE.deep : PALETTE.mist}`,
-                  }}
-                >
-                  <span className="text-lg">{m.emoji}</span>
-                  <span className="font-accent text-tiny">{m.label}</span>
-                </button>
-              );
-            })}
+          <div className="font-display font-semibold mb-3 flex items-center gap-2" style={{ color: PALETTE.sageDeep }}>
+            <Music size={16} color={PALETTE.gold} /> เสียงและระดับเสียง
           </div>
 
           {/* ระดับเสียง */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mb-4">
             <Volume2 size={16} color={PALETTE.sageDark} className="flex-shrink-0" />
             <input type="range" min="0" max="100"
-              value={Math.round((sound.volume ?? 0.7) * 100)}
-              onChange={e => updateSound({ volume: +e.target.value / 100 })}
-              onMouseUp={() => sound.enabled !== false && playMelody(sound.melody, sound.volume)}
-              onTouchEnd={() => sound.enabled !== false && playMelody(sound.melody, sound.volume)}
+              value={Math.round(volume * 100)}
+              onChange={e => saveVolume(+e.target.value / 100)}
+              onMouseUp={() => preview('chime')}
+              onTouchEnd={() => preview('chime')}
               className="flex-1"
               style={{ accentColor: PALETTE.sage }}
             />
             <span className="font-body text-xs w-8 text-right" style={{ color: PALETTE.muted }}>
-              {Math.round((sound.volume ?? 0.7) * 100)}
+              {Math.round(volume * 100)}
             </span>
           </div>
+
+          {/* เสียงของฉัน (อัปโหลด) */}
+          <div className="font-accent text-xs mb-2" style={{ color: PALETTE.gold }}>เสียงของฉัน (จากเครื่อง)</div>
+          {customs.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {customs.map(c => (
+                <div key={c.id} className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  style={{ backgroundColor: PALETTE.shell }}
+                >
+                  <span className="text-sm">🎵</span>
+                  <span className="font-body text-xs flex-1 truncate" style={{ color: PALETTE.forest }}>{c.name}</span>
+                  <button onClick={() => preview(c.id)}
+                    className="smooth-tap w-7 h-7 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: alpha(PALETTE.sage, 20), color: PALETTE.sageDark }}
+                  >
+                    <Play size={12} />
+                  </button>
+                  <button onClick={() => removeCustom(c.id)}
+                    className="smooth-tap w-7 h-7 rounded-full flex items-center justify-center"
+                    style={{ color: PALETTE.coral }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <label className="smooth-tap w-full py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer font-display font-medium text-sm"
+            style={{ backgroundColor: PALETTE.shell, color: PALETTE.sageDark }}
+          >
+            <Upload size={15} /> {uploading ? 'กำลังบันทึก...' : 'อัปโหลดเสียงจากเครื่อง'}
+            <input type="file" accept="audio/*" onChange={onUpload} className="hidden" disabled={uploading} />
+          </label>
+          <p className="font-body text-tiny mt-2 leading-relaxed" style={{ color: PALETTE.muted }}>
+            รองรับ mp3 / wav / m4a (ไม่เกิน 5MB) — เลือกเป็นเสียงเตือนของแต่ละรายการได้ด้านล่าง
+          </p>
         </div>
 
         {/* รายการแจ้งเตือน */}
@@ -229,12 +279,54 @@ export default function Reminders({ reminders, setReminders }) {
                     <Trash2 size={15} />
                   </button>
                 </div>
+
                 <input value={r.label}
                   onChange={e => update(r.id, { label: e.target.value.slice(0, 90) })}
                   placeholder="ข้อความเตือน เช่น อย่าลืมถ่ายรูปข้าว"
-                  className="font-body w-full px-3 py-2.5 rounded-xl text-sm"
+                  className="font-body w-full px-3 py-2.5 rounded-xl text-sm mb-2.5"
                   style={{ backgroundColor: PALETTE.shell, color: PALETTE.forest, border: 'none' }}
                 />
+
+                {/* เสียง + สั่น ของรายการนี้ */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center gap-1.5 rounded-xl pl-3 pr-1 py-1"
+                    style={{ backgroundColor: PALETTE.shell }}
+                  >
+                    <Music size={13} color={PALETTE.sageDark} className="flex-shrink-0" />
+                    <select value={r.sound || 'chime'}
+                      onChange={e => { update(r.id, { sound: e.target.value }); preview(e.target.value); }}
+                      className="font-body text-xs flex-1 min-w-0 bg-transparent py-1.5"
+                      style={{ color: PALETTE.forest, border: 'none' }}
+                    >
+                      {soundOptions.map(o => (
+                        <option key={o.id} value={o.id}>{o.label}</option>
+                      ))}
+                    </select>
+                    <button onClick={() => preview(r.sound || 'chime')}
+                      className="smooth-tap w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: alpha(PALETTE.sage, 20), color: PALETTE.sageDark }}
+                      title="ฟังเสียง"
+                    >
+                      <Play size={12} />
+                    </button>
+                  </div>
+
+                  <button onClick={() => {
+                      const next = !r.vibrate;
+                      update(r.id, { vibrate: next });
+                      if (next && canVibrate) { try { navigator.vibrate(150); } catch {} }
+                    }}
+                    className="smooth-tap px-3 py-2.5 rounded-xl flex items-center gap-1.5 flex-shrink-0"
+                    style={{
+                      backgroundColor: r.vibrate ? PALETTE.sageDark : PALETTE.shell,
+                      color: r.vibrate ? 'white' : PALETTE.muted,
+                    }}
+                    title={canVibrate ? 'สั่นเมื่อเตือน' : 'เครื่องนี้อาจไม่รองรับการสั่น'}
+                  >
+                    <Smartphone size={14} />
+                    <span className="font-accent text-tiny">สั่น</span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
