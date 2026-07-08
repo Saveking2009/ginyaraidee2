@@ -3,6 +3,7 @@ import { PALETTE, FONT_CSS } from './theme';
 import { load, save, calcStreak } from './utils';
 import { pushCommunityCorrections } from './api';
 import { checkDueReminders } from './notifications';
+import { primeAudio } from './sound';
 import IntroSplash from './components/IntroSplash';
 import Onboarding from './components/Onboarding';
 import Dashboard from './components/Dashboard';
@@ -27,7 +28,7 @@ const STORAGE_KEYS = [
   'gyn_profile', 'gyn_foodlog', 'gyn_chat', 'gyn_meds', 'gyn_privacy', 'gyn_persona',
   'gyn_water', 'gyn_exercises', 'gyn_sleep', 'gyn_vitals', 'gyn_news', 'gyn_corrections',
   'gyn_weights', 'gyn_voice', 'gyn_points', 'gyn_tasks', 'gyn_mascot', 'gyn_theme',
-  'gyn_share', 'gyn_community', 'gyn_reminders', 'gyn_reminder_fired', 'gyn_tts_notice_off',
+  'gyn_share', 'gyn_community', 'gyn_reminders', 'gyn_reminder_fired', 'gyn_tts_notice_off', 'gyn_sound',
   'gyn_game_best', 'gyn_game_plays', // เผื่อค้างจากเวอร์ชันเก่า
 ];
 
@@ -120,6 +121,13 @@ export default function App() {
     const id = setInterval(() => checkDueReminders(reminders), 20000);
     return () => clearInterval(id);
   }, [reminders]);
+
+  // ปลุกระบบเสียงตอนผู้ใช้แตะจอครั้งแรก — ให้เสียงแจ้งเตือนเล่นได้ตอนเด้งเอง
+  useEffect(() => {
+    const wake = () => primeAudio();
+    window.addEventListener('pointerdown', wake, { once: true });
+    return () => window.removeEventListener('pointerdown', wake);
+  }, []);
 
   // บันทึกการแก้ไขของผู้ใช้ + ส่งเข้าคลังกลางแบบไม่ระบุตัวตน (เฉพาะชื่อเมนู+แคล)
   const addCorrection = (c) => {

@@ -1,4 +1,11 @@
 import { load, save, todayKey } from './utils';
+import { playMelody, DEFAULT_SOUND } from './sound';
+
+// เล่นเสียงแจ้งเตือนตามที่ผู้ใช้ตั้งไว้
+export function playReminderSound() {
+  const s = load('gyn_sound', DEFAULT_SOUND);
+  if (s && s.enabled !== false) playMelody(s.melody, s.volume ?? 0.7);
+}
 
 /* ============================================================
    ระบบแจ้งเตือน — local notification ตามเวลาที่ผู้ใช้ตั้ง
@@ -45,6 +52,7 @@ export function checkDueReminders(reminders) {
     fired[r.id] = key;
     changed = true;
     showReminderNotification(r);
+    playReminderSound();
   }
 
   if (changed) {

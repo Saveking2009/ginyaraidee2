@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Bell, BellOff, Plus, Trash2, Send } from 'lucide-react';
+import { Bell, BellOff, Plus, Trash2, Send, Music, Volume2 } from 'lucide-react';
 import { PALETTE, alpha } from '../theme';
 import { showReminderNotification } from '../notifications';
+import { load, save } from '../utils';
+import { MELODIES, DEFAULT_SOUND, playMelody, primeAudio } from '../sound';
 
 /* ============================================================
    แจ้งเตือนประจำวัน 🔔
@@ -24,6 +26,19 @@ export default function Reminders({ reminders, setReminders }) {
   const supported = typeof window !== 'undefined' && 'Notification' in window;
   const [perm, setPerm] = useState(supported ? Notification.permission : 'unsupported');
   const [testSent, setTestSent] = useState(false);
+  const [sound, setSound] = useState(() => ({ ...DEFAULT_SOUND, ...load('gyn_sound', {}) }));
+
+  const updateSound = (patch) => {
+    const next = { ...sound, ...patch };
+    setSound(next);
+    save('gyn_sound', next);
+  };
+  // เลือกเพลง = เล่นตัวอย่างทันที (และปลุกระบบเสียงไว้ให้เด้งเองได้ทีหลัง)
+  const pickMelody = (id) => {
+    primeAudio();
+    updateSound({ melody: id, enabled: id !== 'off' });
+    if (id !== 'off') playMelody(id, sound.volume);
+  };
 
   const requestPermission = async () => {
     try {
@@ -44,7 +59,9 @@ export default function Reminders({ reminders, setReminders }) {
     }]);
 
   const sendTest = async () => {
+    primeAudio();
     await showReminderNotification({ id: 'test', label: 'แจ้งเตือนทำงานแล้ว! เจอกันตามเวลาที่ตั้งไว้นะคะ 🌿' });
+    if (sound.enabled !== false) playMelody(sound.melody, sound.volume);
     setTestSent(true);
     setTimeout(() => setTestSent(false), 3000);
   };
@@ -133,6 +150,51 @@ export default function Reminders({ reminders, setReminders }) {
             </div>
           </button>
         )}
+
+        {/* ตั้งค่าเสียงแจ้งเตือน */}
+        <div className="rounded-2xl p-4 mb-4 organic-shadow" style={{ backgroundColor: PALETTE.paper }}>
+          <div className="font-display font-semibold mb-1 flex items-center gap-2" style={{ color: PALETTE.sageDeep }}>
+            <Music size={16} color={PALETTE.gold} /> เสียงแจ้งเตือน
+          </div>
+          <p className="font-body text-xs mb-3" style={{ color: PALETTE.muted }}>
+            แตะเพื่อเลือกและฟังตัวอย่าง
+          </p>
+
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {Object.entries(MELODIES).map(([id, m]) => {
+              const active = sound.melody === id && (id === 'off' ? sound.enabled === false : sound.enabled !== false);
+              return (
+                <button key={id} onClick={() => pickMelody(id)}
+                  className="smooth-tap rounded-xl py-2.5 flex flex-col items-center gap-1"
+                  style={{
+                    backgroundColor: active ? PALETTE.deep : PALETTE.shell,
+                    color: active ? 'white' : PALETTE.forest,
+                    border: `1px solid ${active ? PALETTE.deep : PALETTE.mist}`,
+                  }}
+                >
+                  <span className="text-lg">{m.emoji}</span>
+                  <span className="font-accent text-tiny">{m.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ระดับเสียง */}
+          <div className="flex items-center gap-3">
+            <Volume2 size={16} color={PALETTE.sageDark} className="flex-shrink-0" />
+            <input type="range" min="0" max="100"
+              value={Math.round((sound.volume ?? 0.7) * 100)}
+              onChange={e => updateSound({ volume: +e.target.value / 100 })}
+              onMouseUp={() => sound.enabled !== false && playMelody(sound.melody, sound.volume)}
+              onTouchEnd={() => sound.enabled !== false && playMelody(sound.melody, sound.volume)}
+              className="flex-1"
+              style={{ accentColor: PALETTE.sage }}
+            />
+            <span className="font-body text-xs w-8 text-right" style={{ color: PALETTE.muted }}>
+              {Math.round((sound.volume ?? 0.7) * 100)}
+            </span>
+          </div>
+        </div>
 
         {/* รายการแจ้งเตือน */}
         <div className="font-display font-semibold text-sm mb-3" style={{ color: PALETTE.sageDeep }}>
