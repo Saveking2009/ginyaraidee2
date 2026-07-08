@@ -358,8 +358,10 @@ export default function Reminders({ reminders, setReminders }) {
         <div className="rounded-2xl p-3 flex items-start gap-2" style={{ backgroundColor: PALETTE.shell }}>
           <div className="text-sm">💡</div>
           <p className="font-body text-tiny leading-relaxed" style={{ color: PALETTE.sageDark }}>
-            การแจ้งเตือนทำงานเมื่อแอปเปิดอยู่ (รวมถึงพับหน้าจอ/สลับแท็บในหลายเครื่อง) —
-            ให้เตือนแม่นสุด แนะนำติดตั้งเป็นแอป: เปิดเว็บ → เมนูเบราว์เซอร์ → "เพิ่มลงหน้าจอหลัก"
+            เสียงเพลง/เสียงที่อัปโหลดจะเล่นเมื่อ "เปิดแอปค้างไว้" ตอนถึงเวลา —
+            ถ้าปิดแอป/พักจอ จะเด้งเป็นการแจ้งเตือนพร้อมเสียงระบบของเครื่องแทน
+            (เปิดโหมด "สั่น" ไว้ด้วยจะรู้สึกได้ชัวร์กว่า) —
+            ให้เตือนแม่นสุด แนะนำติดตั้งเป็นแอป: เมนูเบราว์เซอร์ → "เพิ่มลงหน้าจอหลัก"
           </p>
         </div>
       </div>

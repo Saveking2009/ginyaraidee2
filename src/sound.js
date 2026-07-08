@@ -25,29 +25,41 @@ export const MELODIES = {
 export const DEFAULT_SOUND = { melody: 'chime', volume: 0.7, enabled: true };
 
 let _ctx = null;
+let _primeAttached = false;
+
+// ต่อ listener ปลุกเสียง "ทุกครั้ง" ที่ผู้ใช้แตะจอ/กลับมาดูแอป
+// (สำคัญมาก: AudioContext ถูก suspend ตอนสลับแอป/พักจอ ถ้าไม่ resume เสียงจะเงียบ)
+function attachPrime() {
+  if (_primeAttached || typeof window === 'undefined') return;
+  _primeAttached = true;
+  const wake = () => { if (_ctx && _ctx.state === 'suspended') _ctx.resume().catch(() => {}); };
+  ['pointerdown', 'touchstart', 'keydown', 'click'].forEach(ev =>
+    window.addEventListener(ev, wake, { passive: true }));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') wake();
+  });
+}
+
 function getCtx() {
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     if (!_ctx) _ctx = new AC();
-    if (_ctx.state === 'suspended') _ctx.resume();
+    attachPrime();
     return _ctx;
   } catch {
     return null;
   }
 }
 
-// ปลุก AudioContext ตอนผู้ใช้แตะจอ — ให้เสียงเล่นได้ตอนแจ้งเตือนเด้งเองทีหลัง
+// เรียกก่อนเล่น — สร้าง context + resume ถ้าถูก suspend แล้วค่อยเล่น
 export function primeAudio() {
   const ac = getCtx();
-  if (ac && ac.state === 'suspended') ac.resume();
+  if (ac && ac.state === 'suspended') ac.resume().catch(() => {});
 }
 
-export function playMelody(id, volume = 0.7) {
-  const mel = MELODIES[id];
-  if (!mel || id === 'off' || !mel.notes.length) return;
-  const ac = getCtx();
-  if (!ac) return;
+// เล่นทันที (context พร้อมแล้ว)
+function playMelodyNow(ac, mel, volume) {
   try {
     const master = ac.createGain();
     master.gain.value = Math.max(0, Math.min(1, volume));
@@ -70,6 +82,19 @@ export function playMelody(id, volume = 0.7) {
       osc.stop(e + 0.03);
     });
   } catch {}
+}
+
+export function playMelody(id, volume = 0.7) {
+  const mel = MELODIES[id];
+  if (!mel || id === 'off' || !mel.notes.length) return;
+  const ac = getCtx();
+  if (!ac) return;
+  // resume ก่อนเล่นเสมอ — กันเสียงเงียบตอน context ถูก suspend
+  if (ac.state === 'suspended') {
+    ac.resume().then(() => playMelodyNow(ac, mel, volume)).catch(() => playMelodyNow(ac, mel, volume));
+  } else {
+    playMelodyNow(ac, mel, volume);
+  }
 }
 
 /* ============================================================
@@ -156,6 +181,8 @@ export async function playSound(id, volume = 0.7) {
   const ac = getCtx();
   if (!ac) return;
   try {
+    // resume ก่อนเล่นเสมอ — กันเสียงเงียบตอน context ถูก suspend
+    if (ac.state === 'suspended') { try { await ac.resume(); } catch {} }
     let buffer = _bufCache[id];
     if (!buffer) {
       const raw = await getCustomBuf(id);
