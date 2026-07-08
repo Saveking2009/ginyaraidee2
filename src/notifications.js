@@ -1,4 +1,4 @@
-import { load, todayKey } from './utils';
+import { load, save, todayKey } from './utils';
 import { playSound, DEFAULT_SOUND } from './sound';
 
 // เล่นเสียง + สั่น ตามที่ตั้งไว้ในแต่ละรายการ (ระดับเสียงรวมมาจาก gyn_sound)
@@ -42,29 +42,34 @@ export async function showReminderNotification(reminder) {
 }
 
 export function checkDueReminders(reminders) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  if (!Array.isArray(reminders) || reminders.length === 0) return;
+  // ห่อ try/catch ทั้งก้อน — อะไรพังในนี้ต้องไม่ทำให้แอปแครช
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (!Array.isArray(reminders) || reminders.length === 0) return;
 
-  const now = new Date();
-  const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  const today = todayKey();
-  const fired = load('gyn_reminder_fired', {});
-  let changed = false;
+    const now = new Date();
+    const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const today = todayKey();
+    const fired = load('gyn_reminder_fired', {});
+    let changed = false;
 
-  for (const r of reminders) {
-    if (!r.enabled || r.time !== hhmm) continue;
-    const key = `${today} ${r.time}`;
-    if (fired[r.id] === key) continue; // ยิงไปแล้วนาทีนี้ของวันนี้
-    fired[r.id] = key;
-    changed = true;
-    showReminderNotification(r);
-    playReminderSound();
-  }
+    for (const r of reminders) {
+      if (!r || !r.enabled || r.time !== hhmm) continue;
+      const key = `${today} ${r.time}`;
+      if (fired[r.id] === key) continue; // ยิงไปแล้วนาทีนี้ของวันนี้
+      fired[r.id] = key;
+      changed = true;
+      showReminderNotification(r);
+      playReminderSound(r); // ส่ง r เพื่อใช้เสียง/สั่นของรายการนั้นจริงๆ
+    }
 
-  if (changed) {
-    // เก็บกวาด id ที่ถูกลบไปแล้ว
-    const ids = new Set(reminders.map(r => r.id));
-    Object.keys(fired).forEach(k => { if (!ids.has(k)) delete fired[k]; });
-    save('gyn_reminder_fired', fired);
+    if (changed) {
+      // เก็บกวาด id ที่ถูกลบไปแล้ว
+      const ids = new Set(reminders.map(r => r.id));
+      Object.keys(fired).forEach(k => { if (!ids.has(k)) delete fired[k]; });
+      save('gyn_reminder_fired', fired);
+    }
+  } catch (e) {
+    console.warn('checkDueReminders failed:', e);
   }
 }

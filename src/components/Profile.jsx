@@ -365,7 +365,7 @@ export default function Profile({ profile, privacy, setPrivacy, setProfile, rese
         <div className="text-center mt-6 anim-fadeIn">
           <LogoMark size={32} />
           <div className="font-display text-xs mt-2" style={{ color: PALETTE.muted }}>
-            GINYARAIDEE · v2.12
+            GINYARAIDEE · v2.12.1
           </div>
         </div>
       </div>
