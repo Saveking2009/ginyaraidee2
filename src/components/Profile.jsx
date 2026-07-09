@@ -8,7 +8,7 @@ import { calcBMI, bmiCategory, exportMemory, handleImportMemory } from '../utils
 import { PERSONALITIES, resolvePersonality } from '../data/personalities';
 import LogoMark from './LogoMark';
 
-export default function Profile({ profile, privacy, setPrivacy, setProfile, reset, onModalChange, personality, setPersonality, corrections, clearCorrections, addCorrection, theme, setTheme, shareCommunity, setShareCommunity }) {
+export default function Profile({ profile, privacy, setPrivacy, setProfile, reset, onModalChange, personality, setPersonality, corrections, clearCorrections, addCorrection, theme, setTheme, shareCommunity, setShareCommunity, halalMode, setHalalMode }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(profile);
   const bmi = calcBMI(profile.weight, profile.height);
@@ -164,6 +164,33 @@ export default function Profile({ profile, privacy, setPrivacy, setProfile, rese
               );
             })}
           </div>
+        </div>
+
+        {/* Halal mode */}
+        <div className="rounded-2xl p-4 mb-4 organic-shadow anim-slideUp delay-1"
+          style={{ backgroundColor: PALETTE.paper }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1">
+              <div className="font-display font-semibold flex items-center gap-2" style={{ color: PALETTE.sageDeep }}>
+                <span className="text-base">🕌</span> โหมดฮาลาล
+              </div>
+              <p className="font-body text-xs mt-1 leading-relaxed" style={{ color: PALETTE.muted }}>
+                เมื่อเปิด น้องไกด์จะเช็คสถานะฮาลาลของอาหารที่ถ่าย/พิมพ์ชื่อ
+                และบอกส่วนผสมที่ต้องระวัง (หมู แอลกอฮอล์ เจลาติน ฯลฯ)
+              </p>
+            </div>
+            <Toggle on={!!halalMode} onChange={() => setHalalMode?.(!halalMode)} />
+          </div>
+          {halalMode && (
+            <div className="mt-3 rounded-xl p-2.5 flex items-start gap-2" style={{ backgroundColor: PALETTE.shell }}>
+              <span className="text-xs">ℹ️</span>
+              <div className="font-body text-tiny leading-relaxed" style={{ color: PALETTE.sageDark }}>
+                เป็นการประเมินเบื้องต้นจากส่วนผสมที่มองเห็นเท่านั้น ไม่ใช่การรับรองฮาลาลอย่างเป็นทางการ —
+                หากไม่แน่ใจ ให้ดูตรากลางฮาลาล (กอท.) หรือสอบถามร้านค้า
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Privacy toggles */}
@@ -365,7 +392,7 @@ export default function Profile({ profile, privacy, setPrivacy, setProfile, rese
         <div className="text-center mt-6 anim-fadeIn">
           <LogoMark size={32} />
           <div className="font-display text-xs mt-2" style={{ color: PALETTE.muted }}>
-            GINYARAIDEE · v2.12.2
+            GINYARAIDEE · v2.13
           </div>
         </div>
       </div>

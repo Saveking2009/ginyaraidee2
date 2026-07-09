@@ -4,7 +4,7 @@
 //   แคชหน้าเก่าที่ชี้ไปไฟล์ JS ของ deploy เก่าที่ถูกลบแล้ว (จอขาว/จอมืด)
 // - ไฟล์ static อื่นๆ: cache-first (เร็ว + ใช้ออฟไลน์ได้)
 // - /api/ และ version.json: ไม่แตะ ให้วิ่งตรงเสมอ
-const CACHE = 'ginyaraidee-v12';
+const CACHE = 'ginyaraidee-v13';
 const PRECACHE = [
   '/',
   '/index.html',

@@ -8,7 +8,7 @@ import { resolvePersonality } from '../data/personalities';
 import { callClaude } from '../api';
 import LogoMark from './LogoMark';
 
-export default function ChatScreen({ profile, messages, addMessage, clearMessages, personality }) {
+export default function ChatScreen({ profile, messages, addMessage, clearMessages, personality, halal }) {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -151,7 +151,8 @@ export default function ChatScreen({ profile, messages, addMessage, clearMessage
 - เพศ: ${profile.gender === 'female' ? 'หญิง' : 'ชาย'}, อายุ ${profile.age} ปี
 - BMI: ${bmi}
 - แพ้อาหาร: ${profile.foodAllergy.join(', ') || 'ไม่มี'}
-- แพ้ยา: ${profile.drugAllergy.join(', ') || 'ไม่มี'}`;
+- แพ้ยา: ${profile.drugAllergy.join(', ') || 'ไม่มี'}${halal ? `
+- ผู้ใช้ทานอาหารฮาลาล (มุสลิม): เวลาแนะนำอาหาร/เมนู ให้เป็นฮาลาลเท่านั้น เลี่ยงหมู แอลกอฮอล์ และส่วนผสมที่ไม่ฮาลาล ถ้าเมนูไหนน่าสงสัยให้บอกให้ตรวจสอบก่อน` : ''}`;
 
       const history = messages.slice(-12).map(m => ({ role: m.role, content: m.content }));
       const reply = await callClaude({

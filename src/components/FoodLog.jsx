@@ -8,7 +8,7 @@ import { fileToBase64, compressImage, fileToDataURL, todayKey, timeNow, load, sa
 import { buildDictHint } from '../data/foodDict';
 import { callClaude, parseAIJson, fetchCommunityFood } from '../api';
 
-export default function FoodLog({ profile, foodLog, addFood, removeFood, editFood, corrections, addCorrection }) {
+export default function FoodLog({ profile, foodLog, addFood, removeFood, editFood, corrections, addCorrection, halal }) {
   const [busy, setBusy] = useState(false);
   const [previewImg, setPreviewImg] = useState(null);
   const [result, setResult] = useState(null);
@@ -37,6 +37,20 @@ export default function FoodLog({ profile, foodLog, addFood, removeFood, editFoo
       });
     }
   }, []);
+
+  // คำสั่งเพิ่มสำหรับโหมดฮาลาล — ใส่ใน prompt ทั้งถ่ายรูปและพิมพ์ชื่อ
+  const halalHint = () => halal ? `
+
+**โหมดฮาลาล (ผู้ใช้เป็นมุสลิม) — ต้องประเมินสถานะฮาลาลด้วย:**
+ตรวจหาส่วนผสมที่ไม่ฮาลาล (หะรอม): หมู/สุกรทุกส่วน (รวมน้ำมันหมู มันหมู หนังหมู เจลาตินหมู), เลือด, แอลกอฮอล์/เหล้า/เบียร์/ไวน์/มิริน/สาเก/เหล้าจีน, เนื้อสัตว์ที่ไม่ได้เชือดตามหลักอิสลาม, สัตว์ต้องห้าม (สุนัข แมว สัตว์เลื้อยคลาน สัตว์กินเนื้อ สัตว์สองสภาพ), สารสกัดที่มีแอลกอฮอล์
+เกณฑ์ตัดสิน:
+- มีส่วนผสมหะรอมชัดเจน → "haram"
+- น่าสงสัย/ไม่รู้แหล่งที่มา (เช่น ไก่/เนื้อทั่วไปที่ไม่รู้ว่าเชือดฮาลาลไหม, เจลาติน/ครีมเทียม/มาการีนที่ไม่ระบุ, ซอสที่อาจมีเหล้า, อาหารร้านทั่วไปที่อาจปนเปื้อน) → "mushbooh"
+- เป็นผัก ผลไม้ อาหารทะเล ไข่ นม หรือระบุฮาลาลชัดเจน → "halal"
+เพิ่มลงใน JSON:
+  "halalStatus": "halal" หรือ "haram" หรือ "mushbooh",
+  "halalReason": "อธิบายสั้นๆ เป็นภาษาไทย 1 ประโยค",
+  "halalConcerns": ["ส่วนผสม/ประเด็นที่ต้องระวัง ถ้ามี"]` : '';
 
   // สร้างข้อความอ้างอิงจากคลังกลางสำหรับใส่ใน prompt
   const communityHint = () => {
@@ -73,7 +87,7 @@ ${recentCorrections.map((c, i) => `${i+1}. AI ทาย "${c.aiName}" ${c.aiCal}
         : '';
 
       const prompt = `คุณคือนักโภชนาการคลินิกอาวุโสที่เชี่ยวชาญอาหารไทยและการประเมินพลังงานจากภาพถ่ายโดยเฉพาะ ภารกิจ: ประเมินแคลอรี่จากรูปนี้ให้ "แม่นที่สุดเท่าที่มนุษย์ผู้เชี่ยวชาญทำได้" — ตรงไปตรงมา ไม่เกรงใจ แต่ยังเป็นมิตร
-${allergyContext}${learningContext}${communityHint()}
+${allergyContext}${learningContext}${communityHint()}${halalHint()}
 
 **ฐานข้อมูลอาหารไทย (ค่าอ้างอิง — ถ้าเมนูในรูปตรง ให้ยึดเป็นฐานแล้วปรับตามปริมาณจริงในรูป):**
 ${buildDictHint()}
@@ -210,7 +224,7 @@ ${recentCorrections.length > 0 ? '5. เทียบกับที่ผู้�
           role: 'user',
           content: `คุณคือนักโภชนาการคลินิกที่เชี่ยวชาญอาหารไทย ผู้ใช้พิมพ์ชื่ออาหารว่า "${q}"
 ประเมินจากปริมาณมาตรฐาน 1 จาน/ชาม/แก้ว (ถ้าผู้ใช้ระบุปริมาณ/ขนาด/ระดับหวานมาด้วย ให้ใช้ตามนั้นเคร่งครัด)
-${allergyContext}${communityHint()}
+${allergyContext}${communityHint()}${halalHint()}
 
 **ฐานข้อมูลอาหารไทย (ใช้เป็นค่าอ้างอิงหลัก ถ้าตรงกับเมนู — แต่ถ้าเมนูมีในคลังผู้ใช้ทุกคนข้างบน ให้ค่านั้นสำคัญกว่า):**
 ${buildDictHint()}
@@ -527,6 +541,8 @@ ${buildDictHint()}
                 </button>
               )}
 
+              {halal && result.halalStatus && <HalalCard result={result} />}
+
               {result.verdict && (
                 <div className="rounded-2xl p-3 mb-3"
                   style={{ backgroundColor: PALETTE.shell }}
@@ -729,6 +745,41 @@ function HealthScoreBadge({ score }) {
         {score}<span className="text-sm" style={{ color: PALETTE.muted }}>/10</span>
       </div>
       <div className="font-body text-xs" style={{ color: tone }}>{label}</div>
+    </div>
+  );
+}
+
+function HalalCard({ result }) {
+  const map = {
+    halal:    { label: 'ฮาลาล',            icon: '✅', tone: PALETTE.sage,  bg: alpha(PALETTE.sage, 14) },
+    mushbooh: { label: 'มัชบูฮฺ (น่าสงสัย)', icon: '⚠️', tone: PALETTE.gold,  bg: alpha(PALETTE.gold, 16) },
+    haram:    { label: 'หะรอม (ไม่ฮาลาล)',   icon: '⛔', tone: PALETTE.coral, bg: PALETTE.coralSoft },
+  };
+  const s = map[result.halalStatus] || map.mushbooh;
+  return (
+    <div className="rounded-2xl p-3 mb-3" style={{ backgroundColor: s.bg }}>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-base">🕌</span>
+        <span className="font-display font-bold text-sm" style={{ color: s.tone }}>
+          {s.icon} {s.label}
+        </span>
+      </div>
+      {result.halalReason && (
+        <div className="font-body text-xs leading-relaxed" style={{ color: PALETTE.forest }}>
+          {result.halalReason}
+        </div>
+      )}
+      {Array.isArray(result.halalConcerns) && result.halalConcerns.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {result.halalConcerns.map((c, i) => (
+            <span key={i} className="font-body text-tiny px-2 py-0.5 rounded-md"
+              style={{ backgroundColor: PALETTE.paper, color: s.tone }}
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

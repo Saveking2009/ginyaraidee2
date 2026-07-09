@@ -29,6 +29,7 @@ const STORAGE_KEYS = [
   'gyn_water', 'gyn_exercises', 'gyn_sleep', 'gyn_vitals', 'gyn_news', 'gyn_corrections',
   'gyn_weights', 'gyn_voice', 'gyn_points', 'gyn_tasks', 'gyn_mascot', 'gyn_theme',
   'gyn_share', 'gyn_community', 'gyn_reminders', 'gyn_reminder_fired', 'gyn_tts_notice_off', 'gyn_sound',
+  'gyn_halal',
   'gyn_game_best', 'gyn_game_plays', // เผื่อค้างจากเวอร์ชันเก่า
 ];
 
@@ -86,6 +87,7 @@ export default function App() {
   const [themeMode, _setThemeMode] = useState(() => load('gyn_theme', 'auto')); // light | dark | auto
   const [shareCommunity, _setShare] = useState(() => load('gyn_share', true)); // แชร์การแก้แคลเข้าคลังกลาง
   const [reminders, _setReminders] = useState(() => load('gyn_reminders', DEFAULT_REMINDERS));
+  const [halalMode, _setHalal] = useState(() => load('gyn_halal', false)); // โหมดฮาลาล
 
   // Persist helper — รองรับทั้งค่าใหม่ตรงๆ และ function(prev) เพื่อกัน state ค้าง
   // (เช่นตอน import ความจำหลายรายการติดกัน)
@@ -113,6 +115,7 @@ export default function App() {
   const setWeights = makeSetter('gyn_weights', _setWeights);
   const setThemeMode = (v) => { _setThemeMode(v); save('gyn_theme', v); };
   const setShareCommunity = (v) => { _setShare(v); save('gyn_share', v); };
+  const setHalalMode = (v) => { _setHalal(v); save('gyn_halal', v); };
   const setReminders = makeSetter('gyn_reminders', _setReminders);
 
   // ตัวจับเวลาแจ้งเตือน — เช็คทุก 20 วิ ว่าถึงเวลาเตือนรายการไหน
@@ -224,6 +227,7 @@ export default function App() {
     _setPrivacy(DEFAULT_PRIVACY);
     _setPersonality('auto');
     _setThemeMode('auto');
+    _setHalal(false);
     setScreen('home');
   };
 
@@ -276,6 +280,7 @@ export default function App() {
               editFood={(id, patch) => setFoodLog(prev => prev.map(x => x.id === id ? { ...x, ...patch } : x))}
               corrections={corrections}
               addCorrection={addCorrection}
+              halal={halalMode}
             />
           )}
           {screen === 'chat' && (
@@ -283,6 +288,7 @@ export default function App() {
               addMessage={(m) => setChatMessages(prev => [...prev, m])}
               clearMessages={() => setChatMessages([])}
               personality={personality}
+              halal={halalMode}
             />
           )}
           {screen === 'tasks' && (
@@ -311,6 +317,7 @@ export default function App() {
               addCorrection={addCorrection}
               theme={themeMode} setTheme={setThemeMode}
               shareCommunity={shareCommunity} setShareCommunity={setShareCommunity}
+              halalMode={halalMode} setHalalMode={setHalalMode}
             />
           )}
         </div>
